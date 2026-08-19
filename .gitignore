@@ -1,0 +1,38 @@
+# Environment files and local secrets
+.env
+.env.*
+!.env.example
+
+# Node.js dependencies
+node_modules/
+
+# Python virtual environments and caches
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Build and test artifacts
+dist/
+build/
+coverage/
+.next/
+out/
+
+# Logs and temporary files
+*.log
+*.tmp
+*.swp
+
+# Local IDE files
+.idea/
+*.suo
+*.user
+
+# Operating system files
+.DS_Store
+Thumbs.db
+Desktop.ini
