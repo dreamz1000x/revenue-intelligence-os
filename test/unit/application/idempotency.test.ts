@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  canonicalizeCreateContractPayload,
   canonicalizeCreateCustomerPayload,
   createIdempotencyKey,
   fingerprintCanonicalPayload,
@@ -12,6 +13,18 @@ describe("command idempotency primitives", () => {
     expect(canonicalizeCreateCustomerPayload("Acme, Inc.")).toBe(
       '["Acme, Inc."]',
     );
+  });
+
+  it("uses the approved fixed positional array for a Contract payload", () => {
+    expect(
+      canonicalizeCreateContractPayload({
+        customerId: 7,
+        totalAmountCents: 10_000,
+        currency: "EUR",
+        installmentCount: 3,
+        firstDueDate: "2026-01-31",
+      }),
+    ).toBe('[7,10000,"EUR",3,"2026-01-31"]');
   });
 
   it("produces a deterministic lowercase SHA-256 fingerprint", () => {

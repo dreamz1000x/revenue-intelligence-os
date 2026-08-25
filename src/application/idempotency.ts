@@ -43,6 +43,22 @@ export function canonicalizeCreateCustomerPayload(displayName: string): string {
   return JSON.stringify([displayName]);
 }
 
+export function canonicalizeCreateContractPayload(input: {
+  readonly customerId: number;
+  readonly totalAmountCents: number;
+  readonly currency: "EUR";
+  readonly installmentCount: number;
+  readonly firstDueDate: string;
+}): string {
+  return JSON.stringify([
+    input.customerId,
+    input.totalAmountCents,
+    input.currency,
+    input.installmentCount,
+    input.firstDueDate,
+  ]);
+}
+
 export function fingerprintCanonicalPayload(
   canonicalPayload: string,
 ): RequestFingerprint {

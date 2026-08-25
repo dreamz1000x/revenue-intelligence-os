@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "build": "tsc",
+    "db:generate": "tsc && drizzle-kit generate",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
