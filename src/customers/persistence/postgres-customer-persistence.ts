@@ -4,6 +4,7 @@ import {
   CREATE_CUSTOMER_COMMAND,
   IdempotencyPayloadConflict,
 } from "../../application/idempotency.js";
+import type { CreateCommandResult } from "../../application/create-command-result.js";
 import { idempotencyRecords } from "../../persistence/idempotency-schema.js";
 import type {
   Database,
@@ -77,12 +78,14 @@ async function loadRecordedCustomer(
 export class PostgresCustomerPersistence implements CustomerPersistence {
   constructor(private readonly database: Database) {}
 
-  async create(input: CreateCustomerPersistenceInput): Promise<Customer> {
+  async create(
+    input: CreateCustomerPersistenceInput,
+  ): Promise<CreateCommandResult<Customer>> {
     try {
       return await this.database.transaction(async (transaction) => {
         const existing = await loadRecordedCustomer(transaction, input);
         if (existing !== null) {
-          return existing;
+          return { resource: existing, outcome: "replayed" };
         }
 
         const [insertedCustomer] = await transaction
@@ -118,7 +121,7 @@ export class PostgresCustomerPersistence implements CustomerPersistence {
           throw new IdempotencyRaceLost();
         }
 
-        return mapCustomer(insertedCustomer);
+        return { resource: mapCustomer(insertedCustomer), outcome: "created" };
       });
     } catch (error) {
       if (!(error instanceof IdempotencyRaceLost)) {
@@ -130,7 +133,7 @@ export class PostgresCustomerPersistence implements CustomerPersistence {
         if (existing === null) {
           throw new Error("Concurrent idempotency winner could not be resolved");
         }
-        return existing;
+        return { resource: existing, outcome: "replayed" };
       });
     }
   }

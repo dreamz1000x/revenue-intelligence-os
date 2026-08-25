@@ -96,16 +96,19 @@ describe.sequential("Contract PostgreSQL persistence", () => {
   }
 
   async function existingCustomer() {
-    return createCustomer({
+    const result = await createCustomer({
       idempotencyKey: "create-customer-for-contract",
       displayName: "Contract Customer",
     });
+    return result.resource;
   }
 
   it("creates one active Contract with its complete ordered pending schedule", async () => {
     const customer = await existingCustomer();
-    const contract = await createContract(contractCommand(customer.id));
+    const result = await createContract(contractCommand(customer.id));
+    const contract = result.resource;
 
+    expect(result.outcome).toBe("created");
     expect(contract).toMatchObject({
       id: 1,
       customerId: customer.id,
@@ -135,8 +138,8 @@ describe.sequential("Contract PostgreSQL persistence", () => {
     const customer = await existingCustomer();
     const created = await createContract(contractCommand(customer.id));
 
-    const retrieved = await getContractById(created.id);
-    expect(retrieved).toEqual(created);
+    const retrieved = await getContractById(created.resource.id);
+    expect(retrieved).toEqual(created.resource);
     expect(retrieved?.installments.map((item) => item.position)).toEqual([1, 2, 3]);
   });
 
@@ -198,7 +201,8 @@ describe.sequential("Contract PostgreSQL persistence", () => {
     });
 
     const retry = await createContract(command);
-    expect(retry.installments).toHaveLength(3);
+    expect(retry.outcome).toBe("created");
+    expect(retry.resource.installments).toHaveLength(3);
     expect(await persistedContractCounts()).toEqual({
       contract_count: "1",
       installment_count: "3",
@@ -212,9 +216,11 @@ describe.sequential("Contract PostgreSQL persistence", () => {
     const first = await createContract(command);
     const replay = await createContract(command);
 
-    expect(replay.id).toBe(first.id);
-    expect(replay.installments.map((item) => item.id)).toEqual(
-      first.installments.map((item) => item.id),
+    expect(first.outcome).toBe("created");
+    expect(replay.outcome).toBe("replayed");
+    expect(replay.resource.id).toBe(first.resource.id);
+    expect(replay.resource.installments.map((item) => item.id)).toEqual(
+      first.resource.installments.map((item) => item.id),
     );
     expect(await persistedContractCounts()).toEqual({
       contract_count: "1",
@@ -245,7 +251,7 @@ describe.sequential("Contract PostgreSQL persistence", () => {
     const first = await createContract(contractCommand(customer.id, { idempotencyKey: "contract-1" }));
     const second = await createContract(contractCommand(customer.id, { idempotencyKey: "contract-2" }));
 
-    expect(second.id).not.toBe(first.id);
+    expect(second.resource.id).not.toBe(first.resource.id);
     expect(await persistedContractCounts()).toEqual({
       contract_count: "2",
       installment_count: "6",
@@ -270,10 +276,18 @@ describe.sequential("Contract PostgreSQL persistence", () => {
     release();
 
     const results = await Promise.all(calls);
-    expect(new Set(results.map((contract) => contract.id))).toEqual(
-      new Set([results[0]!.id]),
+    expect(new Set(results.map((result) => result.resource.id))).toEqual(
+      new Set([results[0]!.resource.id]),
     );
-    expect(new Set(results.map((contract) => contract.installments.map((item) => item.id).join(","))).size).toBe(1);
+    expect(
+      new Set(
+        results.map((result) =>
+          result.resource.installments.map((item) => item.id).join(","),
+        ),
+      ).size,
+    ).toBe(1);
+    expect(results.filter((result) => result.outcome === "created")).toHaveLength(1);
+    expect(results.filter((result) => result.outcome === "replayed")).toHaveLength(7);
     expect(await persistedContractCounts()).toEqual({
       contract_count: "1",
       installment_count: "12",
@@ -283,11 +297,12 @@ describe.sequential("Contract PostgreSQL persistence", () => {
 
   it("round-trips month-end and leap-year CivilDates unchanged", async () => {
     const customer = await existingCustomer();
-    const contract = await createContract(contractCommand(customer.id, {
+    const result = await createContract(contractCommand(customer.id, {
       idempotencyKey: "leap-contract",
       installmentCount: 4,
       firstDueDate: "2024-01-31",
     }));
+    const contract = result.resource;
 
     expect(contract.installments.map((item) => item.dueDate)).toEqual([
       "2024-01-31",
@@ -323,7 +338,8 @@ describe.sequential("Contract PostgreSQL persistence", () => {
 
   it("enforces unique installment positions within a Contract", async () => {
     const customer = await existingCustomer();
-    const contract = await createContract(contractCommand(customer.id));
+    const result = await createContract(contractCommand(customer.id));
+    const contract = result.resource;
 
     await expect(database.client.insert(installments).values({
       contractId: contract.id,

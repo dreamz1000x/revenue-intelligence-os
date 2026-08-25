@@ -1,4 +1,5 @@
 import type { Clock } from "../../application/clock.js";
+import type { CreateCommandResult } from "../../application/create-command-result.js";
 import {
   canonicalizeCreateContractPayload,
   createIdempotencyKey,
@@ -41,7 +42,9 @@ export function createContractUseCase(dependencies: {
   readonly clock: Clock;
   readonly persistence: ContractPersistence;
 }) {
-  return async (command: CreateContractCommand): Promise<Contract> => {
+  return async (
+    command: CreateContractCommand,
+  ): Promise<CreateCommandResult<Contract>> => {
     const idempotencyKey = createIdempotencyKey(command.idempotencyKey);
     const customerId = createCustomerId(command.customerId);
     const totalAmountCents = createMoneyCents(command.totalAmountCents);

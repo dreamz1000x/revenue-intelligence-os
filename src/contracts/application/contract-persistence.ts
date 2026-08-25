@@ -2,6 +2,7 @@ import type {
   IdempotencyKey,
   RequestFingerprint,
 } from "../../application/idempotency.js";
+import type { CreateCommandResult } from "../../application/create-command-result.js";
 import type { CustomerId } from "../../customers/domain/customer-id.js";
 import type { CivilDate } from "../domain/civil-date.js";
 import type { Contract } from "../domain/contract.js";
@@ -22,6 +23,6 @@ export interface CreateContractPersistenceInput {
 }
 
 export interface ContractPersistence {
-  create(input: CreateContractPersistenceInput): Promise<Contract>;
+  create(input: CreateContractPersistenceInput): Promise<CreateCommandResult<Contract>>;
   getById(id: ContractId): Promise<Contract | null>;
 }

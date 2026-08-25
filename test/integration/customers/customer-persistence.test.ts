@@ -56,11 +56,13 @@ describe.sequential("Customer PostgreSQL persistence", () => {
   }, 30_000);
 
   it("creates and retrieves a customer with the injected UTC instant", async () => {
-    const created = await createCustomer({
+    const result = await createCustomer({
       idempotencyKey: "create-acme",
       displayName: "Acme",
     });
+    const created = result.resource;
 
+    expect(result.outcome).toBe("created");
     expect(created.id).toBe(1);
     expect(created.displayName).toBe("Acme");
     expect(created.createdAt.toISOString()).toBe(FIXED_NOW.toISOString());
@@ -106,7 +108,9 @@ describe.sequential("Customer PostgreSQL persistence", () => {
       displayName: "Acme",
     });
 
-    expect(retry).toEqual(first);
+    expect(first.outcome).toBe("created");
+    expect(retry.outcome).toBe("replayed");
+    expect(retry.resource).toEqual(first.resource);
     const result = await database.client.execute<{ count: string }>(
       sql`select count(*) as count from customers`,
     );
@@ -136,7 +140,9 @@ describe.sequential("Customer PostgreSQL persistence", () => {
       displayName: "Acme",
     });
 
-    expect(second.id).not.toBe(first.id);
+    expect(first.outcome).toBe("created");
+    expect(second.outcome).toBe("created");
+    expect(second.resource.id).not.toBe(first.resource.id);
   });
 
   it("treats keys as case-sensitive", async () => {
@@ -149,7 +155,7 @@ describe.sequential("Customer PostgreSQL persistence", () => {
       displayName: "Acme",
     });
 
-    expect(upper.id).not.toBe(lower.id);
+    expect(upper.resource.id).not.toBe(lower.resource.id);
   });
 
   it("commits one effect for concurrent requests with the same key and payload", async () => {
@@ -161,9 +167,11 @@ describe.sequential("Customer PostgreSQL persistence", () => {
     );
 
     const results = await Promise.all(requests);
-    expect(new Set(results.map((customer) => customer.id))).toEqual(
-      new Set([results[0]?.id]),
+    expect(new Set(results.map((result) => result.resource.id))).toEqual(
+      new Set([results[0]?.resource.id]),
     );
+    expect(results.filter((result) => result.outcome === "created")).toHaveLength(1);
+    expect(results.filter((result) => result.outcome === "replayed")).toHaveLength(7);
 
     const canonicalPayload = canonicalizeCreateCustomerPayload("Concurrent Acme");
     const fingerprint = fingerprintCanonicalPayload(canonicalPayload);

@@ -1,4 +1,5 @@
 import type { Clock } from "../../application/clock.js";
+import type { CreateCommandResult } from "../../application/create-command-result.js";
 import {
   canonicalizeCreateCustomerPayload,
   createIdempotencyKey,
@@ -16,7 +17,9 @@ export function createCustomerUseCase(dependencies: {
   readonly clock: Clock;
   readonly persistence: CustomerPersistence;
 }) {
-  return async (command: CreateCustomerCommand): Promise<Customer> => {
+  return async (
+    command: CreateCustomerCommand,
+  ): Promise<CreateCommandResult<Customer>> => {
     const displayName = validateCustomerDisplayName(command.displayName);
     const idempotencyKey = createIdempotencyKey(command.idempotencyKey);
     const requestFingerprint = fingerprintCanonicalPayload(

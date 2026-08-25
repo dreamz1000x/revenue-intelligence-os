@@ -1,0 +1,58 @@
+import type { FastifyInstance } from "fastify";
+import { z } from "zod";
+
+import type { Customer } from "../../customers/domain/customer.js";
+import type { HttpUseCases } from "./app.js";
+import { PublicHttpError } from "./error-handler.js";
+import { requireIdempotencyKey } from "./request-validation.js";
+
+const createCustomerBodySchema = z.strictObject({
+  displayName: z.string(),
+});
+
+const customerParamsSchema = z.strictObject({
+  customerId: z.string().regex(/^-?\d+$/),
+});
+
+function serializeCustomer(customer: Customer) {
+  return {
+    id: customer.id,
+    displayName: customer.displayName,
+    createdAt: customer.createdAt.toISOString(),
+  };
+}
+
+export function registerCustomerRoutes(
+  app: FastifyInstance,
+  dependencies: Pick<HttpUseCases, "createCustomer" | "getCustomerById">,
+): void {
+  app.post("/customers", async (request, reply) => {
+    const idempotencyKey = requireIdempotencyKey(request);
+    const body = createCustomerBodySchema.parse(request.body);
+    const result = await dependencies.createCustomer({
+      idempotencyKey,
+      displayName: body.displayName,
+    });
+
+    return reply
+      .status(result.outcome === "created" ? 201 : 200)
+      .send(serializeCustomer(result.resource));
+  });
+
+  app.get("/customers/:customerId", async (request, reply) => {
+    const params = customerParamsSchema.parse(request.params);
+    const customer = await dependencies.getCustomerById(
+      Number(params.customerId),
+    );
+
+    if (customer === null) {
+      throw new PublicHttpError(
+        404,
+        "CUSTOMER_NOT_FOUND",
+        "Customer not found",
+      );
+    }
+
+    return reply.status(200).send(serializeCustomer(customer));
+  });
+}
