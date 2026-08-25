@@ -1,0 +1,52 @@
+import { createHash } from "node:crypto";
+
+import { DomainValidationError } from "../domain/domain-validation-error.js";
+
+export const CREATE_CUSTOMER_COMMAND = "create_customer" as const;
+export const CREATE_CONTRACT_COMMAND = "create_contract" as const;
+
+export type CommandType =
+  | typeof CREATE_CUSTOMER_COMMAND
+  | typeof CREATE_CONTRACT_COMMAND;
+
+declare const idempotencyKeyBrand: unique symbol;
+declare const requestFingerprintBrand: unique symbol;
+
+export type IdempotencyKey = string & {
+  readonly [idempotencyKeyBrand]: "IdempotencyKey";
+};
+
+export type RequestFingerprint = string & {
+  readonly [requestFingerprintBrand]: "RequestFingerprint";
+};
+
+export class IdempotencyPayloadConflict extends Error {
+  override readonly name = "IdempotencyPayloadConflict";
+
+  constructor() {
+    super("The idempotency key is already associated with a different payload");
+  }
+}
+
+export function createIdempotencyKey(value: string): IdempotencyKey {
+  if (value.length < 1 || value.length > 128 || !/^[\x21-\x7e]+$/.test(value)) {
+    throw new DomainValidationError(
+      "INVALID_IDEMPOTENCY_KEY",
+      "Idempotency key must contain 1 to 128 visible ASCII characters without spaces",
+    );
+  }
+
+  return value as IdempotencyKey;
+}
+
+export function canonicalizeCreateCustomerPayload(displayName: string): string {
+  return JSON.stringify([displayName]);
+}
+
+export function fingerprintCanonicalPayload(
+  canonicalPayload: string,
+): RequestFingerprint {
+  return createHash("sha256")
+    .update(canonicalPayload, "utf8")
+    .digest("hex") as RequestFingerprint;
+}
