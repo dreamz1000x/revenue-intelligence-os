@@ -4,10 +4,12 @@ import { DomainValidationError } from "../domain/domain-validation-error.js";
 
 export const CREATE_CUSTOMER_COMMAND = "create_customer" as const;
 export const CREATE_CONTRACT_COMMAND = "create_contract" as const;
+export const RECORD_PAYMENT_COMMAND = "record_payment" as const;
 
 export type CommandType =
   | typeof CREATE_CUSTOMER_COMMAND
-  | typeof CREATE_CONTRACT_COMMAND;
+  | typeof CREATE_CONTRACT_COMMAND
+  | typeof RECORD_PAYMENT_COMMAND;
 
 declare const idempotencyKeyBrand: unique symbol;
 declare const requestFingerprintBrand: unique symbol;
@@ -56,6 +58,18 @@ export function canonicalizeCreateContractPayload(input: {
     input.currency,
     input.installmentCount,
     input.firstDueDate,
+  ]);
+}
+
+export function canonicalizeRecordPaymentPayload(input: {
+  readonly contractId: number;
+  readonly amountCents: number;
+  readonly receivedAt: Date;
+}): string {
+  return JSON.stringify([
+    input.contractId,
+    input.amountCents,
+    input.receivedAt.toISOString(),
   ]);
 }
 

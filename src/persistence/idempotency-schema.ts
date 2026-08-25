@@ -25,7 +25,7 @@ export const idempotencyRecords = pgTable(
     primaryKey({ columns: [table.commandType, table.idempotencyKey] }),
     check(
       "idempotency_records_command_type_allowed",
-      sql`${table.commandType} in ('create_customer', 'create_contract')`,
+      sql`${table.commandType} in ('create_customer', 'create_contract', 'record_payment')`,
     ),
     check(
       "idempotency_records_key_format",

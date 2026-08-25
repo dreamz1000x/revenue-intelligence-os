@@ -70,10 +70,17 @@ export const installments = pgTable(
       "installments_amount_safe_integer",
       sql`${table.amountCents} <= 9007199254740991`,
     ),
-    check("installments_status_pending", sql`${table.status} = 'pending'`),
     unique("installments_contract_id_position_unique").on(
       table.contractId,
       table.position,
+    ),
+    unique("installments_id_contract_id_unique").on(
+      table.id,
+      table.contractId,
+    ),
+    check(
+      "installments_status_allowed",
+      sql`${table.status} in ('pending', 'partially_paid', 'paid')`,
     ),
   ],
 );

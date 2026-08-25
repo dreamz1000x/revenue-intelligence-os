@@ -13,7 +13,13 @@ import { createMoneyCents, type MoneyCents } from "./money-cents.js";
 
 export const CONTRACT_CURRENCY = "EUR" as const;
 export const CONTRACT_STATUS = "active" as const;
-export const INSTALLMENT_STATUS = "pending" as const;
+export const INSTALLMENT_STATUSES = [
+  "pending",
+  "partially_paid",
+  "paid",
+] as const;
+export type InstallmentStatus = (typeof INSTALLMENT_STATUSES)[number];
+export const INSTALLMENT_STATUS = "pending" as const satisfies InstallmentStatus;
 
 export interface Installment {
   readonly id: InstallmentId;
@@ -21,7 +27,7 @@ export interface Installment {
   readonly position: number;
   readonly amountCents: MoneyCents;
   readonly dueDate: CivilDate;
-  readonly status: typeof INSTALLMENT_STATUS;
+  readonly status: InstallmentStatus;
   readonly createdAt: Date;
 }
 
@@ -79,6 +85,16 @@ export function validateContractCurrency(value: string): typeof CONTRACT_CURRENC
   return value;
 }
 
+export function validateInstallmentStatus(value: string): InstallmentStatus {
+  if (!(INSTALLMENT_STATUSES as ReadonlyArray<string>).includes(value)) {
+    throw new DomainValidationError(
+      "INVALID_INSTALLMENT_STATUS",
+      "Installment status must be pending, partially_paid, or paid",
+    );
+  }
+  return value as InstallmentStatus;
+}
+
 export function reconstituteContract(input: ReconstituteContractInput): Contract {
   const id = createContractId(input.id);
   const customerId = createCustomerId(input.customerId);
@@ -113,14 +129,14 @@ export function reconstituteContract(input: ReconstituteContractInput): Contract
     const installmentContractId = createContractId(item.contractId);
     const amountCents = createMoneyCents(item.amountCents);
     const dueDate = createCivilDate(item.dueDate);
+    const status = validateInstallmentStatus(item.status);
     const installmentCreatedAt = copyValidDate(item.createdAt, "Installment");
 
     if (
       installmentContractId !== id ||
       item.position !== expected.position ||
       amountCents !== expected.amountCents ||
-      dueDate !== expected.dueDate ||
-      item.status !== INSTALLMENT_STATUS
+      dueDate !== expected.dueDate
     ) {
       throw new DomainValidationError(
         "INCOHERENT_INSTALLMENT_SCHEDULE",
@@ -134,7 +150,7 @@ export function reconstituteContract(input: ReconstituteContractInput): Contract
       position: item.position,
       amountCents,
       dueDate,
-      status: INSTALLMENT_STATUS,
+      status,
       get createdAt() {
         return new Date(installmentCreatedAt.getTime());
       },

@@ -71,4 +71,29 @@ describe("Contract aggregate", () => {
       DomainValidationError,
     );
   });
+
+  it("accepts only the approved Installment payment-status projection", () => {
+    const input = validContractInput();
+    const contract = reconstituteContract({
+      ...input,
+      installments: [
+        { ...input.installments[0]!, status: "partially_paid" },
+        { ...input.installments[1]!, status: "paid" },
+      ],
+    });
+
+    expect(contract.installments.map((item) => item.status)).toEqual([
+      "partially_paid",
+      "paid",
+    ]);
+    expect(() =>
+      reconstituteContract({
+        ...input,
+        installments: [
+          { ...input.installments[0]!, status: "overdue" },
+          input.installments[1]!,
+        ],
+      }),
+    ).toThrowError(DomainValidationError);
+  });
 });

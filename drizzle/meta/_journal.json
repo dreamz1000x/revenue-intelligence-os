@@ -15,6 +15,13 @@
       "when": 1787623665376,
       "tag": "0001_contract_persistence",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1787630370160,
+      "tag": "0002_huge_sinister_six",
+      "breakpoints": true
     }
   ]
 }
