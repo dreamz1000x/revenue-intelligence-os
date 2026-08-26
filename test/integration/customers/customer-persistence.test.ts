@@ -46,7 +46,7 @@ describe.sequential("Customer PostgreSQL persistence", () => {
 
   beforeEach(async () => {
     await database.client.execute(
-      sql`truncate table payment_allocations, payments, installments, contracts, idempotency_records, customers restart identity cascade`,
+      sql`truncate table ledger_entries, payment_allocations, payments, installments, contracts, idempotency_records, customers restart identity cascade`,
     );
   });
 

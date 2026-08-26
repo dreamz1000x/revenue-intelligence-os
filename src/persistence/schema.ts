@@ -4,6 +4,7 @@ export {
   installments,
 } from "../contracts/persistence/contract-schema.js";
 export { idempotencyRecords } from "./idempotency-schema.js";
+export { ledgerEntries } from "../ledger/persistence/ledger-schema.js";
 export {
   paymentAllocations,
   payments,

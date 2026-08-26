@@ -11,6 +11,8 @@ import {
 import { createInstallmentId } from "../../contracts/domain/ids.js";
 import { createMoneyCents } from "../../contracts/domain/money-cents.js";
 import { contracts, installments } from "../../contracts/persistence/contract-schema.js";
+import { derivePaymentRecordedLedgerEntry } from "../../ledger/domain/ledger-entry.js";
+import { ledgerEntries } from "../../ledger/persistence/ledger-schema.js";
 import type {
   Database,
   DatabaseClient,
@@ -255,6 +257,23 @@ export class PostgresPaymentPersistence implements PaymentPersistence {
           }
         }
 
+        const payment = await loadPaymentAggregate(
+          transaction,
+          insertedPayment.id,
+        );
+        if (payment === null) {
+          throw new Error("Inserted Payment could not be loaded");
+        }
+        const ledgerEntry = derivePaymentRecordedLedgerEntry(payment);
+        await transaction.insert(ledgerEntries).values({
+          paymentId: ledgerEntry.paymentId,
+          effectType: ledgerEntry.effectType,
+          amountCents: BigInt(ledgerEntry.amountCents),
+          currency: ledgerEntry.currency,
+          eventAt: ledgerEntry.eventAt,
+          recordedAt: ledgerEntry.recordedAt,
+        });
+
         const insertedRecord = await transaction
           .insert(idempotencyRecords)
           .values({
@@ -275,13 +294,6 @@ export class PostgresPaymentPersistence implements PaymentPersistence {
           throw new IdempotencyRaceLost();
         }
 
-        const payment = await loadPaymentAggregate(
-          transaction,
-          insertedPayment.id,
-        );
-        if (payment === null) {
-          throw new Error("Inserted Payment could not be loaded");
-        }
         return { resource: payment, outcome: "created" };
       });
     } catch (error) {
