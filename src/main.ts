@@ -6,6 +6,9 @@ import { createCustomerUseCase } from "./customers/application/create-customer.j
 import { getCustomerByIdUseCase } from "./customers/application/get-customer-by-id.js";
 import { PostgresCustomerPersistence } from "./customers/persistence/postgres-customer-persistence.js";
 import { buildApp } from "./interface/http/app.js";
+import { getPaymentByIdUseCase } from "./payments/application/get-payment-by-id.js";
+import { recordPaymentUseCase } from "./payments/application/record-payment.js";
+import { PostgresPaymentPersistence } from "./payments/persistence/postgres-payment-persistence.js";
 import { createDatabase } from "./persistence/database.js";
 
 const databaseUrl = process.env["DATABASE_URL"];
@@ -17,11 +20,14 @@ const database = createDatabase({ connectionString: databaseUrl });
 const clock: Clock = { now: () => new Date() };
 const customerPersistence = new PostgresCustomerPersistence(database);
 const contractPersistence = new PostgresContractPersistence(database);
+const paymentPersistence = new PostgresPaymentPersistence(database);
 const app = buildApp({
   createCustomer: createCustomerUseCase({ clock, persistence: customerPersistence }),
   getCustomerById: getCustomerByIdUseCase(customerPersistence),
   createContract: createContractUseCase({ clock, persistence: contractPersistence }),
   getContractById: getContractByIdUseCase(contractPersistence),
+  recordPayment: recordPaymentUseCase({ clock, persistence: paymentPersistence }),
+  getPaymentById: getPaymentByIdUseCase(paymentPersistence),
 });
 
 app.addHook("onClose", async () => database.close());

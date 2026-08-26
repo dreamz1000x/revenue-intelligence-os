@@ -35,6 +35,12 @@ function testApp(
     getContractById: async () => {
       throw new Error("Contract route must not be called");
     },
+    recordPayment: async () => {
+      throw new Error("Payment route must not be called");
+    },
+    getPaymentById: async () => {
+      throw new Error("Payment route must not be called");
+    },
   });
   openApps.push(app);
   return app;

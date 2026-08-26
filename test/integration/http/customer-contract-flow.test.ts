@@ -12,6 +12,9 @@ import { createCustomerUseCase } from "../../../src/customers/application/create
 import { getCustomerByIdUseCase } from "../../../src/customers/application/get-customer-by-id.js";
 import { PostgresCustomerPersistence } from "../../../src/customers/persistence/postgres-customer-persistence.js";
 import { buildApp } from "../../../src/interface/http/app.js";
+import { getPaymentByIdUseCase } from "../../../src/payments/application/get-payment-by-id.js";
+import { recordPaymentUseCase } from "../../../src/payments/application/record-payment.js";
+import { PostgresPaymentPersistence } from "../../../src/payments/persistence/postgres-payment-persistence.js";
 import { createDatabase, type Database } from "../../../src/persistence/database.js";
 
 const POSTGRES_IMAGE = "postgres:18.4";
@@ -36,6 +39,7 @@ describe.sequential("HTTP and PostgreSQL wiring", () => {
     const clock = new FixedClock();
     const customerPersistence = new PostgresCustomerPersistence(database);
     const contractPersistence = new PostgresContractPersistence(database);
+    const paymentPersistence = new PostgresPaymentPersistence(database);
     app = buildApp({
       createCustomer: createCustomerUseCase({
         clock,
@@ -47,6 +51,11 @@ describe.sequential("HTTP and PostgreSQL wiring", () => {
         persistence: contractPersistence,
       }),
       getContractById: getContractByIdUseCase(contractPersistence),
+      recordPayment: recordPaymentUseCase({
+        clock,
+        persistence: paymentPersistence,
+      }),
+      getPaymentById: getPaymentByIdUseCase(paymentPersistence),
     });
     app.addHook("onClose", async () => database.close());
   }, 120_000);
@@ -64,7 +73,7 @@ describe.sequential("HTTP and PostgreSQL wiring", () => {
     await container?.stop();
   }, 30_000);
 
-  it("executes the complete Customer to Contract HTTP flow", async () => {
+  it("executes the complete Customer to Payment HTTP flow", async () => {
     const createCustomer = await app.inject({
       method: "POST",
       url: "/customers",
@@ -130,6 +139,63 @@ describe.sequential("HTTP and PostgreSQL wiring", () => {
     });
     expect(getContract.statusCode).toBe(200);
     expect(getContract.json()).toEqual(createContract.json());
+
+    const paymentRequest = {
+      method: "POST" as const,
+      url: "/payments",
+      headers: { "idempotency-key": "http-record-payment" },
+      payload: {
+        contractId: 1,
+        amountCents: 5_000,
+        receivedAt: "2026-08-25T04:00:00.000Z",
+      },
+    };
+    const createPayment = await app.inject(paymentRequest);
+    expect(createPayment.statusCode).toBe(201);
+    expect(createPayment.json()).toEqual({
+      id: 1,
+      contractId: 1,
+      amountCents: 5_000,
+      receivedAt: "2026-08-25T04:00:00.000Z",
+      createdAt: FIXED_NOW.toISOString(),
+      allocations: [
+        { installmentId: 1, amountCents: 3_334 },
+        { installmentId: 2, amountCents: 1_666 },
+      ],
+    });
+
+    const getPayment = await app.inject({
+      method: "GET",
+      url: "/payments/1",
+    });
+    expect(getPayment.statusCode).toBe(200);
+    expect(getPayment.json()).toEqual(createPayment.json());
+
+    const replayPayment = await app.inject({
+      ...paymentRequest,
+      payload: {
+        ...paymentRequest.payload,
+        receivedAt: "2026-08-25T06:00:00+02:00",
+      },
+    });
+    expect(replayPayment.statusCode).toBe(200);
+    expect(replayPayment.json()).toEqual(createPayment.json());
+
+    const paymentCounts = await database.client.execute<{
+      payment_count: string;
+      allocation_count: string;
+      idempotency_count: string;
+    }>(sql`
+      select
+        (select count(*) from payments) as payment_count,
+        (select count(*) from payment_allocations) as allocation_count,
+        (select count(*) from idempotency_records where command_type = 'record_payment') as idempotency_count
+    `);
+    expect(paymentCounts.rows[0]).toEqual({
+      payment_count: "1",
+      allocation_count: "2",
+      idempotency_count: "1",
+    });
   });
 
   it("propagates HTTP idempotency without a duplicate business effect", async () => {

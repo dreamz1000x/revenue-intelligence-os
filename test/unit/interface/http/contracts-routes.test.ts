@@ -46,6 +46,12 @@ function testApp(
       overrides.createContract ??
       (async () => ({ resource: CONTRACT, outcome: "created" })),
     getContractById: overrides.getContractById ?? (async () => CONTRACT),
+    recordPayment: async () => {
+      throw new Error("Payment route must not be called");
+    },
+    getPaymentById: async () => {
+      throw new Error("Payment route must not be called");
+    },
   });
   openApps.push(app);
   return app;
