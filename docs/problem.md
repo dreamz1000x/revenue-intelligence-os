@@ -1,17 +1,41 @@
 # Problem definition
 
-> Modelamos un negocio de infoproductos que vende a clientes mediante contratos y planes de financiación propios.
->
-> La gestión separada de clientes, contratos, cuotas y pagos dificulta conocer qué se prometió cobrar, qué se ha cobrado y qué continúa pendiente.
->
-> Las diferencias entre contratos, proveedores de pago y movimientos bancarios generan inconsistencias, riesgo financiero y trabajo manual.
->
-> Revenue Intelligence OS debe centralizar esas operaciones, detectar discrepancias y ofrecer una visión fiable para operaciones, finanzas y dirección.
->
-> El sistema debe conservar datos financieros exactos, trazables, auditables y resistentes a operaciones duplicadas.
+Revenue Intelligence OS models a financed-product business in which customer,
+contract, installment, payment-provider, and banking data can diverge. When those
+facts live in separate systems, it becomes difficult to establish what was
+contracted, what the application recorded as received, how money was allocated,
+and which differences still require investigation.
 
-## Initial scope
+The broader product aims to make those financial facts exact, traceable,
+auditable, and resistant to duplicate operations. It must keep source meanings
+explicit rather than treating a provider event, an internal payment record, bank
+settlement, revenue recognition, and reconciliation as equivalent facts.
 
-The first vertical slice is:
+## Current implemented boundary
 
-`customer → contract → installment`
+The backend currently implements this flow:
+
+```text
+customer
+→ contract
+→ deterministic installment schedule
+→ payment
+→ deterministic allocations
+→ immutable financial-effect ledger
+→ signed Stripe payment webhook ingestion
+```
+
+The implementation persists customers and financed contracts in PostgreSQL,
+generates schedules with exact integer-cent conservation, records idempotent
+partial or spanning payments, and writes one immutable `payment_recorded` ledger
+effect for each committed Payment. Signed Stripe Test Mode
+`payment_intent.succeeded` events can supply that payment assertion through a
+durable, duplicate-safe ingestion boundary.
+
+## Outside the current boundary
+
+The backend does not yet implement refunds, chargebacks, bank ingestion,
+reconciliation, analytics, dashboards, an AI assistant, a frontend, or public
+deployment. A Payment is an accepted and durably recorded assertion of money
+received for a Contract; it is not proof of provider or bank settlement, revenue
+recognition, or reconciliation.
