@@ -41,6 +41,13 @@ function testApp(
     getPaymentById: async () => {
       throw new Error("Payment route must not be called");
     },
+    processStripeWebhook: async () => {
+      throw new Error("Stripe route must not be called");
+    },
+    stripeWebhookClock: { now: () => new Date(FIXED_NOW) },
+    verifyStripeSignature: () => {
+      throw new Error("Stripe route must not be called");
+    },
   });
   openApps.push(app);
   return app;

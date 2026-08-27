@@ -6,14 +6,21 @@ import { createCustomerUseCase } from "./customers/application/create-customer.j
 import { getCustomerByIdUseCase } from "./customers/application/get-customer-by-id.js";
 import { PostgresCustomerPersistence } from "./customers/persistence/postgres-customer-persistence.js";
 import { buildApp } from "./interface/http/app.js";
+import { createStripeSignatureVerifier } from "./interface/http/stripe-signature-verifier.js";
 import { getPaymentByIdUseCase } from "./payments/application/get-payment-by-id.js";
 import { recordPaymentUseCase } from "./payments/application/record-payment.js";
 import { PostgresPaymentPersistence } from "./payments/persistence/postgres-payment-persistence.js";
 import { createDatabase } from "./persistence/database.js";
+import { processStripeWebhookUseCase } from "./stripe/application/process-stripe-webhook.js";
+import { PostgresStripeWebhookEventPersistence } from "./stripe/persistence/postgres-stripe-webhook-event-persistence.js";
 
 const databaseUrl = process.env["DATABASE_URL"];
 if (databaseUrl === undefined) {
   throw new Error("DATABASE_URL is required");
+}
+const stripeWebhookSecret = process.env["STRIPE_WEBHOOK_SECRET"];
+if (stripeWebhookSecret === undefined || stripeWebhookSecret.length === 0) {
+  throw new Error("STRIPE_WEBHOOK_SECRET is required");
 }
 
 const database = createDatabase({ connectionString: databaseUrl });
@@ -21,13 +28,23 @@ const clock: Clock = { now: () => new Date() };
 const customerPersistence = new PostgresCustomerPersistence(database);
 const contractPersistence = new PostgresContractPersistence(database);
 const paymentPersistence = new PostgresPaymentPersistence(database);
+const stripeWebhookEventPersistence =
+  new PostgresStripeWebhookEventPersistence(database);
+const recordPayment = recordPaymentUseCase({ clock, persistence: paymentPersistence });
 const app = buildApp({
   createCustomer: createCustomerUseCase({ clock, persistence: customerPersistence }),
   getCustomerById: getCustomerByIdUseCase(customerPersistence),
   createContract: createContractUseCase({ clock, persistence: contractPersistence }),
   getContractById: getContractByIdUseCase(contractPersistence),
-  recordPayment: recordPaymentUseCase({ clock, persistence: paymentPersistence }),
+  recordPayment,
   getPaymentById: getPaymentByIdUseCase(paymentPersistence),
+  processStripeWebhook: processStripeWebhookUseCase({
+    clock,
+    persistence: stripeWebhookEventPersistence,
+    recordPayment,
+  }),
+  stripeWebhookClock: clock,
+  verifyStripeSignature: createStripeSignatureVerifier(stripeWebhookSecret),
 });
 
 app.addHook("onClose", async () => database.close());

@@ -6,6 +6,7 @@ import { CustomerNotFoundError } from "../../contracts/application/customer-not-
 import { DomainValidationError } from "../../domain/domain-validation-error.js";
 import { ContractNotFoundError } from "../../payments/application/contract-not-found-error.js";
 import { PaymentExceedsOutstandingError } from "../../payments/domain/payment-allocation.js";
+import { StripeEventEvidenceConflict } from "../../stripe/application/stripe-webhook-event-persistence.js";
 
 export class PublicHttpError extends Error {
   override readonly name = "PublicHttpError";
@@ -40,6 +41,19 @@ function isMalformedJsonError(error: unknown): boolean {
   );
 }
 
+function isPayloadTooLargeError(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    (error as { readonly code?: unknown }).code ===
+      "FST_ERR_CTP_BODY_TOO_LARGE"
+  );
+}
+
+function isStripeWebhookUrl(url: string): boolean {
+  return url.split("?", 1)[0] === "/webhooks/stripe";
+}
+
 export function registerPublicErrorHandler(app: FastifyInstance): void {
   app.setErrorHandler((error, request, reply) => {
     if (error instanceof PublicHttpError) {
@@ -48,6 +62,18 @@ export function registerPublicErrorHandler(app: FastifyInstance): void {
         error.statusCode,
         error.code,
         error.publicMessage,
+      );
+    }
+
+    if (
+      isPayloadTooLargeError(error) &&
+      isStripeWebhookUrl(request.url)
+    ) {
+      return sendPublicError(
+        reply,
+        413,
+        "PAYLOAD_TOO_LARGE",
+        "Payload too large",
       );
     }
 
@@ -68,6 +94,15 @@ export function registerPublicErrorHandler(app: FastifyInstance): void {
         409,
         "IDEMPOTENCY_PAYLOAD_CONFLICT",
         "Idempotency key is already associated with a different payload",
+      );
+    }
+
+    if (error instanceof StripeEventEvidenceConflict) {
+      return sendPublicError(
+        reply,
+        409,
+        "STRIPE_EVENT_EVIDENCE_CONFLICT",
+        "Stripe event conflicts with retained evidence",
       );
     }
 
@@ -98,7 +133,14 @@ export function registerPublicErrorHandler(app: FastifyInstance): void {
       );
     }
 
-    request.log.error(error);
+    if (isStripeWebhookUrl(request.url)) {
+      request.log.error(
+        { code: "UNEXPECTED_STRIPE_WEBHOOK_ERROR" },
+        "Unexpected Stripe webhook error",
+      );
+    } else {
+      request.log.error(error);
+    }
     return sendPublicError(reply, 500, "INTERNAL_ERROR", "Internal server error");
   });
 }

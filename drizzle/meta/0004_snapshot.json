@@ -1,0 +1,778 @@
+{
+  "id": "461f3527-9df2-45c3-b472-ff9591aab6e4",
+  "prevId": "415509a3-09a3-4ed4-84f3-fa89a967aeee",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.contracts": {
+      "name": "contracts",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "identity": {
+            "type": "byDefault",
+            "name": "contracts_id_seq",
+            "schema": "public",
+            "increment": "1",
+            "startWith": "1",
+            "minValue": "1",
+            "maxValue": "2147483647",
+            "cache": "1",
+            "cycle": false
+          }
+        },
+        "customer_id": {
+          "name": "customer_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "total_amount_cents": {
+          "name": "total_amount_cents",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "currency": {
+          "name": "currency",
+          "type": "varchar(3)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "installment_count": {
+          "name": "installment_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "first_due_date": {
+          "name": "first_due_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "varchar(16)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "contracts_customer_id_customers_id_fk": {
+          "name": "contracts_customer_id_customers_id_fk",
+          "tableFrom": "contracts",
+          "tableTo": "customers",
+          "columnsFrom": [
+            "customer_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "contracts_total_amount_positive": {
+          "name": "contracts_total_amount_positive",
+          "value": "\"contracts\".\"total_amount_cents\" > 0"
+        },
+        "contracts_total_amount_safe_integer": {
+          "name": "contracts_total_amount_safe_integer",
+          "value": "\"contracts\".\"total_amount_cents\" <= 9007199254740991"
+        },
+        "contracts_currency_eur": {
+          "name": "contracts_currency_eur",
+          "value": "\"contracts\".\"currency\" = 'EUR'"
+        },
+        "contracts_installment_count_positive": {
+          "name": "contracts_installment_count_positive",
+          "value": "\"contracts\".\"installment_count\" > 0"
+        },
+        "contracts_installment_count_within_total": {
+          "name": "contracts_installment_count_within_total",
+          "value": "\"contracts\".\"installment_count\" <= \"contracts\".\"total_amount_cents\""
+        },
+        "contracts_status_active": {
+          "name": "contracts_status_active",
+          "value": "\"contracts\".\"status\" = 'active'"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.customers": {
+      "name": "customers",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "identity": {
+            "type": "byDefault",
+            "name": "customers_id_seq",
+            "schema": "public",
+            "increment": "1",
+            "startWith": "1",
+            "minValue": "1",
+            "maxValue": "2147483647",
+            "cache": "1",
+            "cycle": false
+          }
+        },
+        "display_name": {
+          "name": "display_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "customers_display_name_not_blank": {
+          "name": "customers_display_name_not_blank",
+          "value": "length(btrim(\"customers\".\"display_name\")) > 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.idempotency_records": {
+      "name": "idempotency_records",
+      "schema": "",
+      "columns": {
+        "command_type": {
+          "name": "command_type",
+          "type": "varchar(32)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "idempotency_key": {
+          "name": "idempotency_key",
+          "type": "varchar(128)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "request_fingerprint": {
+          "name": "request_fingerprint",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "resource_id": {
+          "name": "resource_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "idempotency_records_command_type_idempotency_key_pk": {
+          "name": "idempotency_records_command_type_idempotency_key_pk",
+          "columns": [
+            "command_type",
+            "idempotency_key"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "idempotency_records_command_type_allowed": {
+          "name": "idempotency_records_command_type_allowed",
+          "value": "\"idempotency_records\".\"command_type\" in ('create_customer', 'create_contract', 'record_payment')"
+        },
+        "idempotency_records_key_format": {
+          "name": "idempotency_records_key_format",
+          "value": "\"idempotency_records\".\"idempotency_key\" ~ '^[!-~]{1,128}$'"
+        },
+        "idempotency_records_fingerprint_format": {
+          "name": "idempotency_records_fingerprint_format",
+          "value": "\"idempotency_records\".\"request_fingerprint\" ~ '^[0-9a-f]{64}$'"
+        },
+        "idempotency_records_resource_id_positive": {
+          "name": "idempotency_records_resource_id_positive",
+          "value": "\"idempotency_records\".\"resource_id\" > 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.installments": {
+      "name": "installments",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "identity": {
+            "type": "byDefault",
+            "name": "installments_id_seq",
+            "schema": "public",
+            "increment": "1",
+            "startWith": "1",
+            "minValue": "1",
+            "maxValue": "2147483647",
+            "cache": "1",
+            "cycle": false
+          }
+        },
+        "contract_id": {
+          "name": "contract_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "position": {
+          "name": "position",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "amount_cents": {
+          "name": "amount_cents",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "due_date": {
+          "name": "due_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "varchar(16)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "installments_contract_id_contracts_id_fk": {
+          "name": "installments_contract_id_contracts_id_fk",
+          "tableFrom": "installments",
+          "tableTo": "contracts",
+          "columnsFrom": [
+            "contract_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "installments_contract_id_position_unique": {
+          "name": "installments_contract_id_position_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "contract_id",
+            "position"
+          ]
+        },
+        "installments_id_contract_id_unique": {
+          "name": "installments_id_contract_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "id",
+            "contract_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "installments_position_positive": {
+          "name": "installments_position_positive",
+          "value": "\"installments\".\"position\" > 0"
+        },
+        "installments_amount_positive": {
+          "name": "installments_amount_positive",
+          "value": "\"installments\".\"amount_cents\" > 0"
+        },
+        "installments_amount_safe_integer": {
+          "name": "installments_amount_safe_integer",
+          "value": "\"installments\".\"amount_cents\" <= 9007199254740991"
+        },
+        "installments_status_allowed": {
+          "name": "installments_status_allowed",
+          "value": "\"installments\".\"status\" in ('pending', 'partially_paid', 'paid')"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.ledger_entries": {
+      "name": "ledger_entries",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "identity": {
+            "type": "byDefault",
+            "name": "ledger_entries_id_seq",
+            "schema": "public",
+            "increment": "1",
+            "startWith": "1",
+            "minValue": "1",
+            "maxValue": "2147483647",
+            "cache": "1",
+            "cycle": false
+          }
+        },
+        "payment_id": {
+          "name": "payment_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "effect_type": {
+          "name": "effect_type",
+          "type": "varchar(32)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "amount_cents": {
+          "name": "amount_cents",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "currency": {
+          "name": "currency",
+          "type": "varchar(3)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "event_at": {
+          "name": "event_at",
+          "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "recorded_at": {
+          "name": "recorded_at",
+          "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "ledger_entries_payment_id_payments_id_fk": {
+          "name": "ledger_entries_payment_id_payments_id_fk",
+          "tableFrom": "ledger_entries",
+          "tableTo": "payments",
+          "columnsFrom": [
+            "payment_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "ledger_entries_payment_id_unique": {
+          "name": "ledger_entries_payment_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "payment_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "ledger_entries_effect_type_payment_recorded": {
+          "name": "ledger_entries_effect_type_payment_recorded",
+          "value": "\"ledger_entries\".\"effect_type\" = 'payment_recorded'"
+        },
+        "ledger_entries_amount_positive": {
+          "name": "ledger_entries_amount_positive",
+          "value": "\"ledger_entries\".\"amount_cents\" > 0"
+        },
+        "ledger_entries_amount_safe_integer": {
+          "name": "ledger_entries_amount_safe_integer",
+          "value": "\"ledger_entries\".\"amount_cents\" <= 9007199254740991"
+        },
+        "ledger_entries_currency_eur": {
+          "name": "ledger_entries_currency_eur",
+          "value": "\"ledger_entries\".\"currency\" = 'EUR'"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.payment_allocations": {
+      "name": "payment_allocations",
+      "schema": "",
+      "columns": {
+        "payment_id": {
+          "name": "payment_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "installment_id": {
+          "name": "installment_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "contract_id": {
+          "name": "contract_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "amount_cents": {
+          "name": "amount_cents",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "payment_allocations_payment_contract_fk": {
+          "name": "payment_allocations_payment_contract_fk",
+          "tableFrom": "payment_allocations",
+          "tableTo": "payments",
+          "columnsFrom": [
+            "payment_id",
+            "contract_id"
+          ],
+          "columnsTo": [
+            "id",
+            "contract_id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "payment_allocations_installment_contract_fk": {
+          "name": "payment_allocations_installment_contract_fk",
+          "tableFrom": "payment_allocations",
+          "tableTo": "installments",
+          "columnsFrom": [
+            "installment_id",
+            "contract_id"
+          ],
+          "columnsTo": [
+            "id",
+            "contract_id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "payment_allocations_payment_id_installment_id_pk": {
+          "name": "payment_allocations_payment_id_installment_id_pk",
+          "columns": [
+            "payment_id",
+            "installment_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "payment_allocations_amount_positive": {
+          "name": "payment_allocations_amount_positive",
+          "value": "\"payment_allocations\".\"amount_cents\" > 0"
+        },
+        "payment_allocations_amount_safe_integer": {
+          "name": "payment_allocations_amount_safe_integer",
+          "value": "\"payment_allocations\".\"amount_cents\" <= 9007199254740991"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.payments": {
+      "name": "payments",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "identity": {
+            "type": "byDefault",
+            "name": "payments_id_seq",
+            "schema": "public",
+            "increment": "1",
+            "startWith": "1",
+            "minValue": "1",
+            "maxValue": "2147483647",
+            "cache": "1",
+            "cycle": false
+          }
+        },
+        "contract_id": {
+          "name": "contract_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "amount_cents": {
+          "name": "amount_cents",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "received_at": {
+          "name": "received_at",
+          "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "payments_contract_id_contracts_id_fk": {
+          "name": "payments_contract_id_contracts_id_fk",
+          "tableFrom": "payments",
+          "tableTo": "contracts",
+          "columnsFrom": [
+            "contract_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "payments_id_contract_id_unique": {
+          "name": "payments_id_contract_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "id",
+            "contract_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "payments_amount_positive": {
+          "name": "payments_amount_positive",
+          "value": "\"payments\".\"amount_cents\" > 0"
+        },
+        "payments_amount_safe_integer": {
+          "name": "payments_amount_safe_integer",
+          "value": "\"payments\".\"amount_cents\" <= 9007199254740991"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.stripe_webhook_events": {
+      "name": "stripe_webhook_events",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "identity": {
+            "type": "byDefault",
+            "name": "stripe_webhook_events_id_seq",
+            "schema": "public",
+            "increment": "1",
+            "startWith": "1",
+            "minValue": "1",
+            "maxValue": "2147483647",
+            "cache": "1",
+            "cycle": false
+          }
+        },
+        "stripe_event_id": {
+          "name": "stripe_event_id",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "event_type": {
+          "name": "event_type",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "stripe_payment_intent_id": {
+          "name": "stripe_payment_intent_id",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "raw_payload": {
+          "name": "raw_payload",
+          "type": "bytea",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "received_at": {
+          "name": "received_at",
+          "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "varchar(16)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "processing_token": {
+          "name": "processing_token",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "processing_started_at": {
+          "name": "processing_started_at",
+          "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "processed_at": {
+          "name": "processed_at",
+          "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "payment_id": {
+          "name": "payment_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "last_error_code": {
+          "name": "last_error_code",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "stripe_webhook_events_payment_id_payments_id_fk": {
+          "name": "stripe_webhook_events_payment_id_payments_id_fk",
+          "tableFrom": "stripe_webhook_events",
+          "tableTo": "payments",
+          "columnsFrom": [
+            "payment_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "stripe_webhook_events_stripe_event_id_unique": {
+          "name": "stripe_webhook_events_stripe_event_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "stripe_event_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "stripe_webhook_events_event_id_format": {
+          "name": "stripe_webhook_events_event_id_format",
+          "value": "\"stripe_webhook_events\".\"stripe_event_id\" ~ '^evt_[A-Za-z0-9]+$'"
+        },
+        "stripe_webhook_events_event_type_supported": {
+          "name": "stripe_webhook_events_event_type_supported",
+          "value": "\"stripe_webhook_events\".\"event_type\" = 'payment_intent.succeeded'"
+        },
+        "stripe_webhook_events_payment_intent_id_format": {
+          "name": "stripe_webhook_events_payment_intent_id_format",
+          "value": "\"stripe_webhook_events\".\"stripe_payment_intent_id\" is null or \"stripe_webhook_events\".\"stripe_payment_intent_id\" ~ '^pi_[A-Za-z0-9]+$'"
+        },
+        "stripe_webhook_events_raw_payload_size": {
+          "name": "stripe_webhook_events_raw_payload_size",
+          "value": "octet_length(\"stripe_webhook_events\".\"raw_payload\") between 1 and 1048576"
+        },
+        "stripe_webhook_events_status_supported": {
+          "name": "stripe_webhook_events_status_supported",
+          "value": "\"stripe_webhook_events\".\"status\" in ('received', 'processing', 'processed', 'failed')"
+        },
+        "stripe_webhook_events_state_consistency": {
+          "name": "stripe_webhook_events_state_consistency",
+          "value": "(\n        (\"stripe_webhook_events\".\"status\" = 'received' and \"stripe_webhook_events\".\"processing_token\" is null and \"stripe_webhook_events\".\"processing_started_at\" is null and \"stripe_webhook_events\".\"payment_id\" is null and \"stripe_webhook_events\".\"processed_at\" is null and \"stripe_webhook_events\".\"last_error_code\" is null)\n        or (\"stripe_webhook_events\".\"status\" = 'processing' and \"stripe_webhook_events\".\"processing_token\" is not null and \"stripe_webhook_events\".\"processing_started_at\" is not null and \"stripe_webhook_events\".\"payment_id\" is null and \"stripe_webhook_events\".\"processed_at\" is null and \"stripe_webhook_events\".\"last_error_code\" is null)\n        or (\"stripe_webhook_events\".\"status\" = 'processed' and \"stripe_webhook_events\".\"processing_token\" is null and \"stripe_webhook_events\".\"processing_started_at\" is null and \"stripe_webhook_events\".\"payment_id\" is not null and \"stripe_webhook_events\".\"processed_at\" is not null and \"stripe_webhook_events\".\"last_error_code\" is null and \"stripe_webhook_events\".\"stripe_payment_intent_id\" is not null)\n        or (\"stripe_webhook_events\".\"status\" = 'failed' and \"stripe_webhook_events\".\"processing_token\" is null and \"stripe_webhook_events\".\"processing_started_at\" is null and \"stripe_webhook_events\".\"payment_id\" is null and \"stripe_webhook_events\".\"processed_at\" is not null and \"stripe_webhook_events\".\"last_error_code\" is not null)\n      )"
+        }
+      },
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {},
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

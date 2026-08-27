@@ -56,13 +56,20 @@ describe.sequential("HTTP and PostgreSQL wiring", () => {
         persistence: paymentPersistence,
       }),
       getPaymentById: getPaymentByIdUseCase(paymentPersistence),
+      processStripeWebhook: async () => {
+        throw new Error("Stripe route must not be called");
+      },
+      stripeWebhookClock: clock,
+      verifyStripeSignature: () => {
+        throw new Error("Stripe route must not be called");
+      },
     });
     app.addHook("onClose", async () => database.close());
   }, 120_000);
 
   beforeEach(async () => {
     await database.client.execute(sql`
-      truncate table ledger_entries, payment_allocations, payments, installments, contracts,
+      truncate table stripe_webhook_events, ledger_entries, payment_allocations, payments, installments, contracts,
         idempotency_records, customers
       restart identity cascade
     `);

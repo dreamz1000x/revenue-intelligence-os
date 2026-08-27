@@ -51,6 +51,13 @@ function testApp(
       overrides.recordPayment ??
       (async () => ({ resource: PAYMENT, outcome: "created" })),
     getPaymentById: overrides.getPaymentById ?? (async () => PAYMENT),
+    processStripeWebhook: async () => {
+      throw new Error("Stripe route must not be called");
+    },
+    stripeWebhookClock: { now: () => new Date(CREATED_AT) },
+    verifyStripeSignature: () => {
+      throw new Error("Stripe route must not be called");
+    },
   });
   openApps.push(app);
   return app;

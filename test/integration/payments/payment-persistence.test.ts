@@ -61,7 +61,7 @@ describe.sequential("Payment PostgreSQL persistence", () => {
 
   beforeEach(async () => {
     await database.client.execute(sql`
-      truncate table ledger_entries, payment_allocations, payments, installments, contracts,
+      truncate table stripe_webhook_events, ledger_entries, payment_allocations, payments, installments, contracts,
         idempotency_records, customers
       restart identity cascade
     `);
