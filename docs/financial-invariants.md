@@ -1,314 +1,238 @@
 # Financial invariants
 
-This document states the financial properties that Revenue Intelligence OS must preserve. An invariant describes what must remain true; constraints, idempotency keys, state machines, ledgers, reconciliation, and tests are possible enforcement mechanisms rather than the invariant itself.
+This document states the financial properties currently enforced by Revenue
+Intelligence OS and the boundaries where they apply. An invariant describes what
+must remain true; domain validation, PostgreSQL constraints, transactions,
+idempotency records, immutable evidence, and tests provide complementary
+enforcement.
 
-## A. General invariants
+## 1. Monetary representation
 
-### INV-01 — Monetary precision
+### FIN-01 — Money uses integer minor units
 
-**Rule:** Financial amounts and calculations must be exact and reproducible.
+All current financial amounts are integer euro cents. Floating-point monetary
+values are not accepted or persisted. Values crossing the TypeScript boundary
+must be positive safe integers, and PostgreSQL checks the corresponding upper
+bound of `9007199254740991`.
 
-**Why it exists:** It prevents rounding drift and unexplained differences between contracts, installments, payments, and financial records.
+### FIN-02 — Currency meaning is explicit
 
-**Correct example:** Two installments of 5,000 cents sum exactly to a contractual total of 10,000 cents.
+The current Contract and ledger boundary supports only `EUR`. Installments and
+PaymentAllocations inherit their Contract's currency rather than storing a
+separate currency. Stripe `eur` maps to internal `EUR`; other provider currencies
+are rejected for the supported event.
 
-**Violation example:** A calculation produces an approximation that compares differently with the contractual total.
+## 2. Contract and installment schedule
 
-**Future enforcement:** Domain money type, exact persistence representation, explicit rounding rules, and unit tests.
+### FIN-03 — Contractual totals are positive and conserved
 
-**Phase:** Applies now to `customer → contract → installment`.
+A Contract total is positive. Every Installment amount is positive, and the sum
+of the complete generated schedule equals the Contract total exactly.
+`installment_count` is positive and cannot exceed the Contract total expressed
+in cents, preventing zero-value Installments.
 
-### INV-02 — External events have effects at most once
-
-**Rule:** Receiving the same external event more than once must not duplicate money, state changes, or derived effects.
-
-**Why it exists:** External systems and queues can deliver the same event repeatedly.
-
-**Correct example:** A duplicated payment event is recognized, while its financial effect is applied once.
-
-**Violation example:** The duplicate creates a second payment or financial entry.
-
-**Future enforcement:** Stable event identity, idempotency key, uniqueness constraint, idempotent handler, and integration tests.
-
-**Phase:** Later, when external financial events are introduced.
-
-### INV-03 — Original events are retained
-
-**Rule:** Every accepted financial event must be preserved in its original form before its effects are applied to the domain.
-
-**Why it exists:** The original evidence is needed to diagnose failures, retry processing, and audit what was received.
-
-**Correct example:** An event payload is retained even if its later normalization fails.
-
-**Violation example:** Processing fails and no original event remains for investigation or retry.
-
-**Future enforcement:** Immutable event persistence, processing status, queue and retry controls, and integration tests.
-
-**Phase:** Later, with event ingestion.
-
-### INV-04 — State transitions are valid
-
-**Rule:** A financial entity may change state only through an allowed transition justified by a recorded fact.
-
-**Why it exists:** It prevents contradictory states and unexplained lifecycle changes.
-
-**Correct example:** A future state change follows an explicit transition rule and records its cause.
-
-**Violation example:** An entity is edited directly into a state incompatible with its prior state or financial history.
-
-**Future enforcement:** Domain rules, state machine, audit history, and transition tests.
-
-**Phase:** Applies now in its minimal form; this slice has no state transitions after creation.
-
-### INV-05 — Refunds preserve history
-
-**Rule:** A refund must compensate the original financial effect without deleting or rewriting that history.
-
-**Why it exists:** Destructive changes make audit, reconciliation, and historical reporting unreliable.
-
-**Correct example:** A refund adds a compensating entry linked to the retained original payment.
-
-**Violation example:** Refunding deletes the original payment and its evidence.
-
-**Future enforcement:** Immutable ledger, compensating entries, audit relationships, and tests.
-
-**Phase:** Later, when payments, ledger, and refunds exist.
-
-### INV-06 — Source discrepancies remain visible
-
-**Rule:** A difference between financial sources must be exposed with enough evidence to understand and resolve it; it must not be silently hidden in a consolidated figure.
-
-**Why it exists:** Contracts, payment providers, bank records, and internal data can diverge.
-
-**Correct example:** A payment present in one source but absent internally produces a traceable exception.
-
-**Violation example:** The system selects one conflicting figure without disclosing the disagreement.
-
-**Future enforcement:** Reconciliation rules, exception records, evidence by source, resolution history, and tests.
-
-**Phase:** Later, when multiple financial sources exist.
-
-### INV-07 — Repeated commands do not repeat effects
-
-**Rule:** Retrying the same logical command must not repeat its effect.
-
-**Why it exists:** A caller can retry after a timeout without knowing whether the first execution completed.
-
-**Correct example:** A repeated `create financed contract` command returns the contract associated with the original execution without creating a second contract or installment schedule.
-
-**Violation example:** A response is lost after commit, and retrying the request creates duplicate domain records.
-
-**Enforcement:** Client-provided idempotency key, deterministic request fingerprint, persistent idempotency record, uniqueness controls, one transaction containing the idempotency record and command effects, and automated tests.
-
-**Phase:** Applies now to `create customer` and `create financed contract`.
-
-#### Operation identity
-
-Every logical operation uses an `Idempotency-Key` supplied by the client. Its conceptual identity is:
-
-```text
-(command_type, idempotency_key)
-```
-
-The same key string may be used for different command types without identifying the same operation.
-
-#### Retry semantics
-
-For the same command type, key, and canonical payload:
-
-- The effect is not repeated.
-- The resource associated with the original successful execution is returned.
-
-For the same command type and key with a different canonical payload:
-
-- The request is rejected.
-- The key cannot be reassigned to a different intent.
-- No additional resource is created.
-
-Different keys represent different logical operations even when their payloads are identical. Business data is not used for automatic deduplication. For example, two `create customer` commands with `display_name = "John Smith"` and different keys may create two different customers.
-
-#### Request fingerprint
-
-The validated request has a deterministic fingerprint. Its only purpose is to verify that a key continues to represent the same command and canonical payload. It must not be used to infer business duplicates.
-
-#### Atomicity
-
-The idempotency record and the effect of its command share one transaction boundary:
-
-```text
-create customer:
-idempotency record + customer
-
-create financed contract:
-idempotency record + contract + complete installment schedule
-```
-
-Either the complete operation is committed or nothing is persisted. A failure before commit cannot leave a successful key. If commit succeeds but the HTTP response is lost, a retry returns the same resource without duplicating effects.
-
-#### Minimal conceptual persistence
-
-V1 retains only:
-
-- Key.
-- Command type.
-- Request fingerprint.
-- Resource or result identifier.
-- `created_at`.
-
-V1 has no expiration, stored HTTP response bodies, Redis coordination, distributed locks, or complex execution states. This section defines concepts only and does not define a persistence schema.
-
-#### Relationship to event invariants
-
-- `INV-07` covers retries of commands initiated by clients.
-- `INV-02` covers duplicate external events.
-- `INV-10` covers deliberate replay of historical events.
-
-They remain separate because their sources, identities, and execution boundaries differ.
-
-### INV-08 — Temporal meaning is unambiguous
-
-**Rule:** Technical instants must be stored in UTC, presentation zones must be explicit, and civil business dates must remain dates rather than ambiguous timestamps.
-
-**Why it exists:** It prevents lifecycle, audit, and due-date errors caused by implicit zones or daylight-saving changes.
-
-**Correct example:** `created_at` is an unambiguous UTC instant while `due_date` is the civil date `2026-09-15`.
-
-**Violation example:** `2026-09-15 00:00` is stored without a zone and interpreted differently by two processes.
-
-**Future enforcement:** Domain temporal types, UTC storage for technical timestamps, explicit presentation conversion, and boundary tests.
-
-**Phase:** Applies now.
-
-### INV-09 — Partial payments are allocated deterministically
-
-**Rule:** Given the same contract, pending installments, and partial payment, allocation must always produce the same result.
-
-**Why it exists:** It prevents retries or different processes from distributing one payment inconsistently.
-
-**Correct example:** Repeating an allocation with identical inputs assigns the same amounts to the same installments.
-
-**Violation example:** Allocation changes because installments were returned in an incidental order.
-
-**Future enforcement:** Explicit allocation rule and ordering, domain operation, ledger, transaction boundary, and unit tests.
-
-**Phase:** Later, when payments are introduced.
-
-### INV-10 — Reprocessing is safe
-
-**Rule:** Reprocessing an original event must not duplicate, erase, or silently alter financial effects already applied correctly.
-
-**Why it exists:** Replay is necessary for recovery but can corrupt figures when handlers repeat effects.
-
-**Correct example:** Replaying an applied event recognizes the existing outcome and creates no second effect.
-
-**Violation example:** Replaying one event creates another payment or ledger entry.
-
-**Future enforcement:** Immutable original event, idempotent handler, processing record, uniqueness controls, safe replay, and integration tests.
-
-**Phase:** Later, with event processing and recovery operations.
-
-### INV-11 — An active financed contract has a coherent schedule
-
-**Rule:** An active financed contract must always have its complete, ordered installment schedule, and that schedule must preserve the contractual total.
-
-**Why it exists:** A missing or partial schedule makes expected, due, and collected amounts impossible to establish reliably.
-
-**Correct example:** An active three-installment contract exists together with all three ordered installments whose amounts sum to its total.
-
-**Violation example:** An active contract exists with no installments or only part of its schedule.
-
-**Future enforcement:** Atomic domain operation, validation, persistence constraints where appropriate, reconciliation, and tests.
-
-**Phase:** Applies now.
-
-## B. V1 monetary invariants
-
-### MON-01 — Explicit single currency
-
-Every V1 contract explicitly uses `EUR`. Every installment inherits its contract's currency, and no other currency is valid in this slice.
-
-### MON-02 — Integer minor units
-
-Every amount is an integer number of euro cents, where 100 cents equals 1 euro. Financial values and calculations must never use `float`.
-
-### MON-03 — Positive contractual total
-
-`contract.total_amount` must be strictly greater than zero.
-
-### MON-04 — Positive installment amounts
-
-Every `installment.amount` must be strictly greater than zero.
-
-### MON-05 — Valid installment count
-
-`installment_count` must be a positive integer and must satisfy:
-
-```text
-installment_count <= contract.total_amount
-```
-
-In this comparison, `contract.total_amount` is expressed in cents. This prevents generation of zero-value installments.
-
-### MON-06 — Exact conservation of the contractual total
-
-For every financed contract:
-
-```text
-SUM(installment.amount) == contract.total_amount
-```
-
-Schedule generation cannot create or lose a cent.
-
-### MON-07 — Deterministic remainder distribution
-
-For total amount `T` and installment count `N`:
+For total `T` and installment count `N`:
 
 ```text
 base = T DIV N
 remainder = T MOD N
 ```
 
-Every installment initially receives `base`. The first `remainder` installments, determined by their stable position, receive one additional cent.
+Each Installment receives `base`; the first `remainder` positions receive one
+additional cent. The result is deterministic and loses or creates no cent.
 
-Example:
+### FIN-04 — Installment order and dates are stable
 
-```text
-10000 / 3 → [3334, 3333, 3333]
-```
+Installments use unique positions `1..N`. Monetary distribution and later
+payment allocation use ascending position explicitly rather than incidental
+database order.
 
-### MON-08 — Stable installment order
-
-Installments have explicit positions `1, 2, 3, ... N`. Monetary distribution depends only on the contractual total, installment count, and this stable order.
-
-### MON-09 — Unique meaning of the contractual total
-
-`contract.total_amount` is the total amount the customer contractually commits to pay. V1 does not separately model interest, financing fees, taxes, down payments, balloon payments, or external financial adjustments.
-
-## C. Temporal rule
-
-For an installment at position `N`:
+For position `N`:
 
 ```text
 due_date(N) = first_due_date shifted by N - 1 calendar months
 ```
 
-The contractual day of month is preserved when it exists in the target month. If it does not exist, the due date is the last day of that month. Every due date is calculated from `first_due_date`, never from the preceding installment, so a shortened month does not cause cumulative drift.
+The contractual day is preserved where possible and clamped to the target
+month's final day otherwise. Each date is derived from `first_due_date`, so a
+short month causes no cumulative drift.
 
-Examples:
+`first_due_date` and `due_date` remain civil dates. Technical timestamps such as
+`created_at`, `received_at`, and `processed_at` are unambiguous instants stored
+with time zone; presentation-zone conversion is outside the persistence model.
 
-```text
-2026-01-31 → 2026-02-28 → 2026-03-31
-2024-01-31 → 2024-02-29
-```
+### FIN-05 — Contract creation is atomic and contractual terms are immutable
 
-The rule must handle February and leap years deterministically. `due_date` and `first_due_date` are civil dates. Technical timestamps such as `created_at` are unambiguous UTC instants.
+A financed Contract and its complete schedule commit in one transaction or not
+at all. Current use cases expose no update or physical-delete operation for the
+Contract total, currency, installment count, first due date, or generated
+schedule.
 
-The first due date may be in the past, present, or future so that V1 can load historical contracts.
+### FIN-06 — Installment status is a derived projection
 
-## D. V1 atomicity and immutability
+An Installment status is `pending`, `partially_paid`, or `paid`. RecordPayment
+derives this projection from the Installment amount and the sum of its immutable
+PaymentAllocations. Status is not an independent source of financial truth.
 
-- Creating a financed contract and its complete installment schedule is one atomic operation: either the contract and every installment are created, or none of them are.
-- An active financed contract cannot exist with a missing or partial schedule.
-- Once created, `total_amount`, `currency`, `installment_count`, `first_due_date`, and the generated schedule are immutable in this slice.
-- V1 provides no physical deletion of customers, contracts, or installments.
-- V1 does not introduce versioning, soft deletion, or update events for these rules.
+## 3. Command idempotency
+
+### FIN-07 — Repeating a command does not repeat its effect
+
+`create_customer`, `create_contract`, and `record_payment` use a command type,
+caller-provided or derived idempotency key, and SHA-256 fingerprint of canonical
+validated input.
+
+- Same command type, same key, same payload: return the existing resource as a
+  replay without another effect.
+- Same command type, same key, different payload: reject as a conflict.
+- Different keys: independent commands, even when payloads are equal.
+
+The idempotency record commits atomically with its resource and dependent
+effects. A rollback leaves the command retryable.
+
+Command identity is distinct from Stripe Event identity. Stripe derives the
+RecordPayment key from the exact PaymentIntent identity so different Event
+deliveries for one PaymentIntent converge on the same financial command.
+
+## 4. Payment and allocation
+
+### FIN-08 — Payment has a narrow, immutable meaning
+
+A Payment means the application accepted and durably recorded an assertion that
+a positive EUR amount was received for one Contract at `receivedAt`.
+
+For direct HTTP commands, the caller supplies `receivedAt`. For the supported
+Stripe flow, `receivedAt` is the verified Stripe Event `created` timestamp.
+The application Clock supplies `createdAt`.
+
+A Payment does not prove provider authorization, capture, Stripe settlement,
+bank settlement, revenue recognition, accounts receivable, or reconciliation.
+Current application boundaries expose no Payment update or delete operation.
+
+### FIN-09 — Allocation is deterministic and complete
+
+RecordPayment loads Installments and existing allocations for the Contract,
+orders Installments by ascending position, skips fully paid Installments, and
+allocates against each outstanding amount in order.
+
+The algorithm supports partial payments and payments spanning multiple
+Installments. It creates no zero allocation, allocates every Payment cent exactly
+once, and rejects an amount greater than the Contract's total outstanding
+balance. No unapplied balance is retained.
+
+### FIN-10 — Payments against one Contract are serialized
+
+RecordPayment runs at PostgreSQL `READ COMMITTED` and locks the Contract row with
+`SELECT ... FOR UPDATE`. The command idempotency record is checked again after
+the lock. Allocation is calculated from the locked state before Payment,
+PaymentAllocations, Installment projections, LedgerEntry, and idempotency record
+commit atomically.
+
+This prevents concurrent payments for the same Contract from allocating against
+the same outstanding cents. PostgreSQL is the coordination mechanism; no Redis,
+advisory lock, or distributed lock is used.
+
+## 5. Immutable financial-effect ledger
+
+### FIN-11 — Every supported Payment has exactly one ledger effect
+
+Each committed Payment written through RecordPayment produces exactly one
+LedgerEntry with:
+
+- `effect_type = payment_recorded`;
+- the Payment's exact amount;
+- `currency = EUR`;
+- `event_at = Payment.receivedAt`;
+- `recorded_at = Payment.createdAt`.
+
+The Payment foreign key prevents orphan entries, uniqueness on `payment_id`
+prevents multiple entries, RecordPayment establishes existence for new Payments,
+and migration `0003` backfilled retained historical Payments.
+
+### FIN-12 — Ledger evidence is append-only
+
+Application persistence exposes no update or delete operation for LedgerEntry,
+and PostgreSQL rejects `UPDATE` and `DELETE`. Administrative `TRUNCATE` remains
+available for controlled test or database administration boundaries.
+
+Corrections require future compensating effects; accepted history must not be
+rewritten. The current ledger is an immutable financial-effect ledger, not
+double-entry accounting, and makes no balance, settlement, recognition, or
+reconciliation claim.
+
+## 6. Stripe webhook evidence and processing
+
+### FIN-13 — Only verified, supported Test Mode evidence can create an effect
+
+`POST /webhooks/stripe` requires exactly one `Stripe-Signature`. Verification
+uses Stripe's verifier over the exact raw Buffer and `STRIPE_WEBHOOK_SECRET`.
+Live events are rejected. Signed event types other than
+`payment_intent.succeeded` are acknowledged without persistence or financial
+effect.
+
+For the supported event, the PaymentIntent must also be Test Mode, use `eur`,
+contain a positive safe-integer `amount_received`, and provide a canonical
+positive PostgreSQL integer in `metadata.contract_id`.
+
+### FIN-14 — Original supported event evidence is retained immutably
+
+The first supported event for a Stripe Event ID retains its exact signed raw
+payload, event type, safely extractable PaymentIntent ID, and receipt time before
+financial processing. PostgreSQL prevents deletion and changes to evidence
+columns.
+
+A repeated Event ID with identical evidence is a delivery replay. The same Event
+ID with different raw bytes, event type, or PaymentIntent identity is an evidence
+conflict; the first retained evidence remains authoritative and no new financial
+effect is attempted.
+
+External event identity, provider PaymentIntent identity, and RecordPayment
+command identity remain separate concepts.
+
+### FIN-15 — Webhook processing has exclusive, recoverable ownership
+
+A retained event moves through `received`, `processing`, and one terminal state:
+`processed` or `failed`. Processing ownership is acquired by an atomic
+conditional PostgreSQL update using a random UUID token and database-clock start
+time.
+
+An active claim is reported busy. A claim older than 60 seconds can be replaced.
+Only the current token may finalize or release the event, so a stale worker
+cannot overwrite newer ownership.
+
+### FIN-16 — Webhook retry does not duplicate financial effects
+
+Permanent validation or business rejection records a bounded stable error code
+and terminates as `failed`. Infrastructure failures attempt to release the
+current claim back to `received` and return an error so delivery can be retried.
+
+The webhook claim is not held open as a long-running transaction around
+RecordPayment. If Payment and Ledger commit but event finalization fails, a later
+claim derives the same PaymentIntent-based command key. RecordPayment replays the
+existing Payment, after which the current token can finalize the event link.
+This preserves one Payment and one LedgerEntry.
+
+Arbitrary exception messages, stack traces, signing secrets, and raw payloads are
+not persisted as failure text by this boundary.
+
+## 7. Current exclusions
+
+The current invariants do not claim implementation of refunds, chargebacks,
+compensating ledger effects, bank ingestion, reconciliation, accounting,
+analytics, or settlement verification. Those capabilities require separately
+defined facts, transitions, and tests before they can extend this model.
+
+### FIN-17 — Future refunds must preserve accepted history
+
+When refunds are introduced, they must add an explicitly related compensating
+effect. They must not delete or rewrite the original Payment, allocations,
+provider evidence, or LedgerEntry. This invariant is retained as a design
+requirement but is not implemented by the current system.
+
+### FIN-18 — Future source discrepancies must remain visible
+
+When multiple financial sources are introduced, differences between Contracts,
+provider evidence, bank records, and internal effects must be represented with
+enough evidence to investigate and resolve them. Reconciliation must not silently
+select one conflicting value. This invariant is retained as a design requirement
+but reconciliation is not implemented by the current system.

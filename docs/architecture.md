@@ -1,280 +1,174 @@
 # Architecture
 
-This document describes the planned architecture for the first vertical slice. The technologies named here have not been installed yet.
+This document describes the architecture currently implemented by Revenue
+Intelligence OS. The system is an evolving backend, not a production-ready
+platform.
 
-## Purpose
+## System shape
 
-The first slice must demonstrate that Revenue Intelligence OS can turn approved financial rules into a small, executable, and verifiable flow:
+Revenue Intelligence OS is a modular monolith running as one Node.js process
+against one PostgreSQL database. The process creates one PostgreSQL connection
+pool and shares it through the persistence adapters.
 
-```text
-customer → contract → installment
-```
-
-The result must protect the financial invariants in the domain, persist a complete financed schedule atomically, and expose the outcome through a minimal HTTP API and automated tests.
-
-## Scope
-
-The slice includes only:
-
-- Creating a customer.
-- Creating a financed contract for an existing customer.
-- Validating the approved contractual and financial invariants.
-- Generating every installment in the contract schedule.
-- Distributing the contractual amount deterministically.
-- Calculating monthly civil due dates.
-- Persisting the contract and its complete schedule atomically.
-- Retrieving a contract with its installments ordered by position.
-- Verifying the flow through automated tests and a minimal HTTP API.
-
-The slice does not include a visual frontend, payments, webhooks, external financial sources, asynchronous processing, ledger, reconciliation, analytics, AI, or operational infrastructure beyond what this flow needs.
-
-## Runtime architecture
+The code separates four conceptual responsibilities:
 
 ```text
-HTTP request
-    ↓
-Interface validation
-    ↓
-Application use case
-    ↓
-Domain rules
-    ↓
-Transaction
-    ↓
-Persistence
-    ↓
-PostgreSQL
-    ↓
-Response
+interface → application → domain → persistence
 ```
 
-### HTTP request
+- **Interface** validates HTTP input, maps requests and responses, and exposes
+  stable public errors.
+- **Application** coordinates use cases, idempotency, clocks, persistence, and
+  transaction boundaries.
+- **Domain** owns monetary, allocation, schedule, identifier, and temporal rules.
+- **Persistence** implements PostgreSQL reads, writes, constraints, locks, and
+  transaction coordination through Drizzle ORM.
 
-Accepts external input for customer creation, financed contract creation, or contract retrieval. Input is untrusted at this boundary.
+A single deployable process and database remain appropriate because the current
+financial operations need strong local transaction boundaries and no implemented
+capability requires independent deployment. Module boundaries remain explicit so
+future extraction can be driven by demonstrated operational needs.
 
-### Interface validation
+## Current boundaries
 
-Checks the shape and primitive types of the request, including required fields, integer inputs, identifiers, and valid civil-date syntax. It translates transport errors but does not implement financial calculations.
+### Customers
 
-### Application use case
+The `customers` boundary owns Customer validation, creation, lookup, command
+idempotency, PostgreSQL persistence, and the customer HTTP routes.
 
-Coordinates the operation. It retrieves the customer when required, invokes domain behavior, establishes the transaction boundary, calls persistence, and returns the completed result.
+### Contracts and installments
 
-### Domain rules
+The `contracts` boundary owns financed Contracts, immutable contractual terms,
+deterministic installment schedule generation, civil due dates, persistence, and
+contract HTTP routes. A Contract and its complete ordered schedule are created in
+one transaction.
 
-Validate the financial terms and generate the complete schedule: installment amounts, remainder distribution, positions, due dates, initial states, and exact preservation of the contractual total. These rules do not depend on HTTP or PostgreSQL.
+### Payments
 
-### Transaction
+The `payments` boundary owns Payment and PaymentAllocation, deterministic
+allocation across Installments by ascending position, payment command
+idempotency, persistence, and payment HTTP routes. Partial payments and payments
+spanning multiple Installments are supported; overpayment is rejected.
 
-Defines the atomic boundary for financed contract creation. Any failure before the complete schedule is persisted causes the entire operation to fail.
+### Ledger
 
-### Persistence
+The `ledger` boundary owns the immutable financial effect created for a Payment.
+The only current effect is `payment_recorded`. This is not a double-entry
+accounting ledger and makes no settlement, revenue-recognition, or
+accounts-receivable claim.
 
-Writes and retrieves customers, contracts, and installments while preserving their relationships and stable ordering. It does not contain the schedule-generation formulas.
+### Stripe webhook ingestion
 
-### PostgreSQL
+The `stripe` application and persistence boundary, together with the HTTP
+interface, verifies and ingests signed Stripe Test Mode webhook events. It
+retains original evidence, coordinates processing ownership, maps supported
+events to RecordPayment, and finalizes durable processing state.
 
-Stores the data, enforces structural constraints, and commits or rolls back the atomic operation.
+## Request and event flows
 
-### Response
-
-Returns only after a successful commit. Contract retrieval returns the contract and its complete installments ordered by position.
-
-## Modular boundaries
-
-The current modular monolith contains two business modules.
-
-### `customers`
-
-Responsibilities:
-
-- The `Customer` concept.
-- Validation of `display_name`.
-- Customer creation.
-- Customer retrieval.
-- Customer persistence.
-
-It does not generate contracts, calculate schedules, or own installment rules.
-
-### `contracts`
-
-Responsibilities:
-
-- The `Contract` and `Installment` concepts.
-- Validation of contractual and financial terms.
-- Complete schedule generation.
-- Deterministic monetary distribution.
-- Monthly due-date calculation.
-- Atomic creation of a contract and its schedule.
-- Retrieval of the ordered schedule.
-
-`billing` is not a separate module yet. In this slice, an installment is part of the contractual schedule and has no independent payment behavior. A billing boundary becomes justified only when payments, allocation, collection state, or other operational responsibilities exist.
-
-## Layering
-
-The architecture separates four conceptual responsibilities:
+### Customer creation
 
 ```text
-interface
-application
-domain
-persistence
+POST /customers + Idempotency-Key
+→ interface validation
+→ command fingerprint and idempotency check
+→ Customer persistence
+→ idempotency record
+→ atomic commit
 ```
 
-- **Interface** owns HTTP-specific validation, request mapping, response mapping, and transport errors.
-- **Application** coordinates use cases, dependencies, and transaction boundaries.
-- **Domain** owns pure financial and temporal rules and the meaning of the model.
-- **Persistence** implements PostgreSQL reads and writes and exposes database failures to the application in a controlled form.
-
-Application and domain are different responsibilities: application coordinates a workflow; domain determines whether that workflow is financially valid. This distinction does not require an artificial proliferation of classes, interfaces, or pass-through abstractions.
-
-Financial rules must be testable without HTTP or PostgreSQL. Transactions belong to application and persistence coordination, not to pure schedule-generation functions.
-
-## Technology decisions
-
-These are planned choices; exact versions remain open.
-
-### Node.js and TypeScript
-
-Node.js provides the runtime for the primary API described by the governing plan. TypeScript makes domain inputs, results, and boundaries explicit while keeping the first application in one language and process.
-
-### Fastify
-
-Fastify provides a small HTTP surface, schema-based request handling, testable request injection, and plugin encapsulation without imposing a large application framework. It keeps the runtime flow visible and is proportionate to the short sprint.
-
-### PostgreSQL
-
-PostgreSQL provides relational integrity, constraints, and the transaction required to create a contract and its complete schedule as one unit.
-
-### Drizzle
-
-Drizzle is the planned query and schema layer because it provides TypeScript-aware access while keeping the relational model, constraints, transactions, and generated migrations visible. The exact package version and migration workflow are not yet selected.
-
-## PostgreSQL responsibilities
-
-PostgreSQL will protect the structural integrity of this slice through:
-
-- Primary keys for customer, contract, and installment.
-- Foreign keys from contract to customer and installment to contract.
-- `NOT NULL` requirements for mandatory data.
-- Uniqueness of `(contract_id, position)`.
-- Simple constraints for positive values and the permitted currency and states.
-- One atomic transaction for contract and schedule creation.
-
-The domain remains primarily responsible for:
-
-- Generating the complete schedule.
-- Preserving the exact contractual total.
-- Distributing the remainder deterministically.
-- Calculating monthly due dates without cumulative drift.
-- Producing the complete sequence of positions from `1` through `installment_count`.
-
-The application validates these properties before persistence, while PostgreSQL provides complementary structural defenses. This slice will not introduce complex database triggers for cross-row financial rules.
-
-## Testing strategy for this slice
-
-The tests derive from the rules in [financial-invariants.md](financial-invariants.md).
-
-### Unit
-
-Unit tests cover pure domain behavior, including input rules, monetary distribution, total preservation, stable positions, and civil due-date generation.
-
-### Integration
-
-Integration tests use real PostgreSQL behavior to verify primary and foreign keys, uniqueness, simple constraints, reads, transaction commit, and rollback after a deliberate failure.
-
-### End-to-end
-
-End-to-end tests exercise the complete HTTP flow: create a customer, create a financed contract, and retrieve the contract with its ordered schedule.
-
-## Deferred architecture
-
-The following components are deliberately postponed:
-
-- Frontend.
-- Python service.
-- Redis.
-- Workers.
-- Queues.
-- Stripe.
-- Ledger.
-- Reconciliation.
-- Analytics.
-- AI assistant.
-- External observability.
-- Microservices.
-
-They will be introduced only when the implemented behavior creates a real operational boundary or requirement. Their presence in the long-term plan does not justify adding them to the first slice.
-
-## Command idempotency
-
-Both `create customer` and `create financed contract` require a client-provided `Idempotency-Key`. The operation identity is scoped by command type, and a deterministic fingerprint of the canonical validated input detects reuse of a key for a different request.
+### Contract creation
 
 ```text
-HTTP request
-+ Idempotency-Key
-        ↓
-interface validation
-        ↓
-canonical validated input
-        ↓
-fingerprint
-        ↓
-application use case
-        ↓
-idempotency lookup / conflict detection
-        ↓
-domain rules
-        ↓
-single PostgreSQL transaction
-        ├── idempotency record
-        ├── resource
-        └── dependent resources
-        ↓
-commit
-        ↓
-response
+POST /contracts + Idempotency-Key
+→ customer lookup
+→ contractual validation
+→ deterministic installment schedule
+→ Contract + Installments + idempotency record
+→ atomic commit
 ```
 
-For customer creation, the transaction contains the idempotency record and customer. For financed contract creation, it contains the idempotency record, contract, and complete installment schedule. A completed idempotency record cannot be committed without its complete result, and a committed result cannot lose its idempotency association.
+### Direct payment
 
-PostgreSQL is the only persistent coordination mechanism for this slice. The design does not introduce Redis, distributed locks, queues, or a generic idempotency framework.
+```text
+POST /payments + Idempotency-Key
+→ canonical payment command
+→ lock Contract row
+→ recheck idempotency
+→ load ordered Installments and existing allocations
+→ deterministic allocation
+→ Payment + PaymentAllocations
+→ Installment status projection
+→ payment_recorded LedgerEntry
+→ idempotency record
+→ atomic commit
+```
 
-### HTTP semantics
+### Stripe webhook
 
-- Initial successful creation: `201 Created`.
-- Successful retry with the same command type, key, and canonical payload: `200 OK`, returning the associated resource without another effect.
-- Same command type and key with a different canonical payload: `409 Conflict`.
-- Missing required `Idempotency-Key`: `400 Bad Request`.
-- Input that is structurally valid but violates domain rules: `422 Unprocessable Content`.
-- Missing customer when creating a contract: `404 Not Found`.
+```text
+POST /webhooks/stripe + Stripe-Signature
+→ preserve exact raw Buffer
+→ verify signature
+→ reject live mode / acknowledge unsupported type
+→ retain supported event evidence
+→ acquire processing token or detect busy/terminal delivery
+→ validate PaymentIntent mapping
+→ RecordPayment
+→ Payment + Allocations + Ledger atomic commit
+→ finalize webhook event with Payment link
+```
 
-The exact JSON error representation remains outside the current decision.
+The supported financial event is `payment_intent.succeeded`. The current mapping
+uses `PaymentIntent.metadata.contract_id`, `amount_received`, and `eur`. Different
+Stripe Event deliveries for the same PaymentIntent converge on the same
+RecordPayment command identity.
 
-### Testing implications
+## Transactions and concurrency
 
-The implementation must demonstrate:
+PostgreSQL transactions use `READ COMMITTED`.
 
-- Repeating the same customer command creates one customer.
-- Repeating the same contract command creates one contract and one complete schedule.
-- Reusing a key with a different payload produces a conflict and no additional resource.
-- Different keys with identical payloads remain independent operations.
-- A complete rollback leaves the operation retryable.
-- A successful commit followed by a lost response can be retried without duplication.
-- Concurrent requests with the same key produce one confirmed effect.
+RecordPayment locks the owning Contract row with `SELECT ... FOR UPDATE`. This is
+the serialization boundary for payments against one Contract. Idempotency is
+checked again after the lock, allocation is calculated from the locked financial
+state, and Payment, PaymentAllocations, Installment projections, LedgerEntry, and
+the command idempotency record commit atomically.
 
-## Open implementation decisions
+Webhook processing ownership is separate from the RecordPayment transaction. A
+conditional PostgreSQL update assigns a random UUID processing token and a
+database-clock start time. An active claim is busy; a claim older than 60 seconds
+may be replaced. Only the current token may finalize or release the event. This
+avoids holding a webhook-event transaction open while RecordPayment executes.
 
-- Exact Node.js version.
-- Package manager.
-- Exact Fastify and Drizzle versions.
-- Schema validation library.
-- Migration workflow.
-- Test runner.
-- PostgreSQL provisioning for integration tests.
-- HTTP error contract.
-- Permitted format and maximum length of `Idempotency-Key`.
-- Exact canonical request representation.
-- Fingerprint hash algorithm.
-- Precise behavior of a concurrent retry while the first transaction remains open.
-- Technical mapping from uniqueness conflicts to the committed result.
+If the financial transaction commits but webhook finalization fails, a retry
+reclaims the event and RecordPayment returns the existing Payment through its
+idempotency boundary before finalization is attempted again.
+
+## Technology and workflow
+
+- Node.js 24.19.0 and TypeScript 7.0.2.
+- Fastify 5.11.3 for HTTP.
+- PostgreSQL 18.4 in the verified integration-test environment.
+- Drizzle ORM 0.45.2 and Drizzle Kit 0.31.4.
+- Stripe SDK 22.5.0 for webhook signature verification.
+- Vitest 4.1.10 and Testcontainers 12.1.0.
+- pnpm 11.20.0 through Corepack.
+
+Schema changes follow:
+
+```text
+TypeScript schema
+→ build
+→ drizzle-kit generate
+→ manual SQL review
+→ commit
+```
+
+The project does not use `drizzle-kit push`.
+
+## Current non-goals
+
+The current architecture does not implement refunds, chargebacks, bank
+ingestion, reconciliation, analytics, an AI assistant, a frontend, Redis,
+queues, workers, microservices, or public deployment. Stripe ingestion does not
+create PaymentIntents or prove provider or bank settlement.
