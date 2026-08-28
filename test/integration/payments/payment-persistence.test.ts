@@ -24,6 +24,7 @@ import { recordPaymentUseCase } from "../../../src/payments/application/record-p
 import { PaymentExceedsOutstandingError } from "../../../src/payments/domain/payment-allocation.js";
 import { paymentAllocations, payments } from "../../../src/payments/persistence/payment-schema.js";
 import { PostgresPaymentPersistence } from "../../../src/payments/persistence/postgres-payment-persistence.js";
+import { refundAllocations, refunds } from "../../../src/refunds/persistence/refund-schema.js";
 
 const POSTGRES_IMAGE = "postgres:18.4";
 const CREATED_AT = new Date("2026-08-25T12:00:00.456Z");
@@ -129,6 +130,54 @@ describe.sequential("Payment PostgreSQL persistence", () => {
     return database.client.select().from(ledgerEntries).orderBy(ledgerEntries.id);
   }
 
+  async function persistRefund(
+    paymentId: number,
+    allocations: ReadonlyArray<{
+      installmentId: number;
+      amountCents: number;
+    }>,
+  ) {
+    const amountCents = allocations.reduce(
+      (total, allocation) => total + allocation.amountCents,
+      0,
+    );
+    const [refund] = await database.client
+      .insert(refunds)
+      .values({
+        paymentId,
+        amountCents: BigInt(amountCents),
+        refundedAt: RECEIVED_AT,
+        createdAt: CREATED_AT,
+      })
+      .returning({ id: refunds.id });
+    expect(refund).toBeDefined();
+    await database.client.insert(refundAllocations).values(
+      allocations.map((allocation) => ({
+        refundId: refund!.id,
+        paymentId,
+        installmentId: allocation.installmentId,
+        amountCents: BigInt(allocation.amountCents),
+      })),
+    );
+    return refund!.id;
+  }
+
+  async function allocationTotals(installmentId: number) {
+    const result = await database.client.execute<{
+      gross: string;
+      refunded: string;
+    }>(sql`
+      select
+        (select coalesce(sum(amount_cents), 0)::text
+          from payment_allocations
+          where installment_id = ${installmentId}) as gross,
+        (select coalesce(sum(amount_cents), 0)::text
+          from refund_allocations
+          where installment_id = ${installmentId}) as refunded
+    `);
+    return result.rows[0]!;
+  }
+
   it("records an exact Payment and marks the Installment paid", async () => {
     const contract = await financedContract(100, 1, "exact");
     const result = await recordPayment(command(contract.id, 100, "exact-payment"));
@@ -202,6 +251,141 @@ describe.sequential("Payment PostgreSQL persistence", () => {
       "partially_paid",
       "pending",
     ]);
+  });
+
+  it("repays a fully paid Installment after a partial Refund", async () => {
+    const contract = await financedContract(100, 1, "refund-repayment");
+    const original = await recordPayment(
+      command(contract.id, 100, "refund-repayment-original"),
+    );
+    await persistRefund(original.resource.id, [
+      { installmentId: contract.installments[0]!.id, amountCents: 30 },
+    ]);
+
+    const repayment = await recordPayment(
+      command(contract.id, 30, "refund-repayment-new"),
+    );
+
+    expect(repayment.resource.allocations).toEqual([
+      { installmentId: contract.installments[0]!.id, amountCents: 30 },
+    ]);
+    expect(await allocationTotals(contract.installments[0]!.id)).toEqual({
+      gross: "130",
+      refunded: "30",
+    });
+    expect(await statuses(contract.id)).toEqual([
+      { id: contract.installments[0]!.id, status: "paid" },
+    ]);
+  });
+
+  it("allocates repayment to the earlier position reopened by a Refund", async () => {
+    const contract = await financedContract(200, 2, "refund-ordering");
+    const original = await recordPayment(
+      command(contract.id, 200, "refund-ordering-original"),
+    );
+    await persistRefund(original.resource.id, [
+      { installmentId: contract.installments[1]!.id, amountCents: 30 },
+    ]);
+
+    const repayment = await recordPayment(
+      command(contract.id, 30, "refund-ordering-new"),
+    );
+
+    expect(repayment.resource.allocations).toEqual([
+      { installmentId: contract.installments[1]!.id, amountCents: 30 },
+    ]);
+    expect((await statuses(contract.id)).map((item) => item.status)).toEqual([
+      "paid",
+      "paid",
+    ]);
+  });
+
+  it("derives effective paid state from multiple Payments and a Refund", async () => {
+    const contract = await financedContract(200, 2, "refund-multi-payment");
+    const first = await recordPayment(
+      command(contract.id, 150, "refund-multi-payment-1"),
+    );
+    await recordPayment(command(contract.id, 50, "refund-multi-payment-2"));
+    await persistRefund(first.resource.id, [
+      { installmentId: contract.installments[1]!.id, amountCents: 30 },
+    ]);
+
+    const repayment = await recordPayment(
+      command(contract.id, 30, "refund-multi-payment-3"),
+    );
+
+    expect(repayment.resource.allocations).toEqual([
+      { installmentId: contract.installments[1]!.id, amountCents: 30 },
+    ]);
+    expect(await allocationTotals(contract.installments[1]!.id)).toEqual({
+      gross: "130",
+      refunded: "30",
+    });
+  });
+
+  it("does not multiply multiple Payment and Refund allocation totals", async () => {
+    const contract = await financedContract(100, 1, "refund-aggregation");
+    const first = await recordPayment(
+      command(contract.id, 60, "refund-aggregation-payment-1"),
+    );
+    const second = await recordPayment(
+      command(contract.id, 40, "refund-aggregation-payment-2"),
+    );
+    await persistRefund(first.resource.id, [
+      { installmentId: contract.installments[0]!.id, amountCents: 10 },
+    ]);
+    await persistRefund(second.resource.id, [
+      { installmentId: contract.installments[0]!.id, amountCents: 15 },
+    ]);
+
+    const repayment = await recordPayment(
+      command(contract.id, 25, "refund-aggregation-payment-3"),
+    );
+
+    expect(repayment.resource.allocations).toEqual([
+      { installmentId: contract.installments[0]!.id, amountCents: 25 },
+    ]);
+    expect(await allocationTotals(contract.installments[0]!.id)).toEqual({
+      gross: "125",
+      refunded: "25",
+    });
+  });
+
+  it("still rejects true overpayment after considering Refunds", async () => {
+    const contract = await financedContract(100, 1, "refund-overpayment");
+    const original = await recordPayment(
+      command(contract.id, 100, "refund-overpayment-original"),
+    );
+    await persistRefund(original.resource.id, [
+      { installmentId: contract.installments[0]!.id, amountCents: 20 },
+    ]);
+    const before = await financialCounts();
+
+    await expect(
+      recordPayment(command(contract.id, 21, "refund-overpayment-new")),
+    ).rejects.toBeInstanceOf(PaymentExceedsOutstandingError);
+
+    expect(await financialCounts()).toEqual(before);
+    expect(await allocationTotals(contract.installments[0]!.id)).toEqual({
+      gross: "100",
+      refunded: "20",
+    });
+  });
+
+  it("rejects persisted Refund allocations exceeding gross Payment allocations", async () => {
+    const contract = await financedContract(100, 1, "refund-corrupt");
+    const original = await recordPayment(
+      command(contract.id, 40, "refund-corrupt-original"),
+    );
+    await persistRefund(original.resource.id, [
+      { installmentId: contract.installments[0]!.id, amountCents: 41 },
+    ]);
+
+    await expect(
+      recordPayment(command(contract.id, 1, "refund-corrupt-new")),
+    ).rejects.toThrow(
+      "Stored RefundAllocation total exceeds PaymentAllocation total",
+    );
   });
 
   it("rejects overpayment without any new financial effect", async () => {

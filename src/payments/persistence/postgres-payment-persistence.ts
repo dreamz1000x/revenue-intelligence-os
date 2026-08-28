@@ -19,6 +19,7 @@ import type {
   TransactionClient,
 } from "../../persistence/database.js";
 import { idempotencyRecords } from "../../persistence/idempotency-schema.js";
+import { refundAllocations } from "../../refunds/persistence/refund-schema.js";
 import { ContractNotFoundError } from "../application/contract-not-found-error.js";
 import type {
   PaymentPersistence,
@@ -130,7 +131,7 @@ async function loadAllocationInputs(
   contractId: number,
 ): Promise<{
   readonly inputs: ReadonlyArray<InstallmentAllocationInput>;
-  readonly allocatedByInstallment: ReadonlyMap<number, number>;
+  readonly effectiveAllocatedByInstallment: ReadonlyMap<number, number>;
   readonly amountByInstallment: ReadonlyMap<number, number>;
 }> {
   const installmentRows = await transaction
@@ -142,37 +143,79 @@ async function loadAllocationInputs(
     .from(installments)
     .where(eq(installments.contractId, contractId))
     .orderBy(asc(installments.position));
-  const existingAllocationRows = await transaction
+  const paymentAllocationRows = await transaction
     .select({
       installmentId: paymentAllocations.installmentId,
       amountCents: paymentAllocations.amountCents,
     })
     .from(paymentAllocations)
     .where(eq(paymentAllocations.contractId, contractId));
+  const refundAllocationRows = await transaction
+    .select({
+      installmentId: refundAllocations.installmentId,
+      amountCents: refundAllocations.amountCents,
+    })
+    .from(refundAllocations)
+    .innerJoin(
+      payments,
+      eq(payments.id, refundAllocations.paymentId),
+    )
+    .where(eq(payments.contractId, contractId));
 
-  const allocatedByInstallment = new Map<number, number>();
-  for (const allocation of existingAllocationRows) {
+  const grossAllocatedByInstallment = new Map<number, number>();
+  for (const allocation of paymentAllocationRows) {
     const amount = moneyCentsFromDatabase(allocation.amountCents);
-    const next = (allocatedByInstallment.get(allocation.installmentId) ?? 0) + amount;
+    const next =
+      (grossAllocatedByInstallment.get(allocation.installmentId) ?? 0) + amount;
     if (!Number.isSafeInteger(next)) {
-      throw new Error("Stored allocation total is outside the safe integer range");
+      throw new Error(
+        "Stored gross PaymentAllocation total is outside the safe integer range",
+      );
     }
-    allocatedByInstallment.set(allocation.installmentId, next);
+    grossAllocatedByInstallment.set(allocation.installmentId, next);
+  }
+
+  const refundedByInstallment = new Map<number, number>();
+  for (const allocation of refundAllocationRows) {
+    const amount = moneyCentsFromDatabase(allocation.amountCents);
+    const next =
+      (refundedByInstallment.get(allocation.installmentId) ?? 0) + amount;
+    if (!Number.isSafeInteger(next)) {
+      throw new Error(
+        "Stored RefundAllocation total is outside the safe integer range",
+      );
+    }
+    refundedByInstallment.set(allocation.installmentId, next);
   }
 
   const amountByInstallment = new Map<number, number>();
+  const effectiveAllocatedByInstallment = new Map<number, number>();
   const inputs = installmentRows.map((row): InstallmentAllocationInput => {
     const amountCents = moneyCentsFromDatabase(row.amountCents);
+    const grossAllocated = grossAllocatedByInstallment.get(row.id) ?? 0;
+    const refunded = refundedByInstallment.get(row.id) ?? 0;
+    if (refunded > grossAllocated) {
+      throw new Error(
+        "Stored RefundAllocation total exceeds PaymentAllocation total",
+      );
+    }
+    const effectiveAllocated = grossAllocated - refunded;
+    if (!Number.isSafeInteger(effectiveAllocated) || effectiveAllocated < 0) {
+      throw new Error(
+        "Stored effective allocation total is outside the safe integer range",
+      );
+    }
     amountByInstallment.set(row.id, amountCents);
+    effectiveAllocatedByInstallment.set(row.id, effectiveAllocated);
     return {
       installmentId: createInstallmentId(row.id),
       position: row.position,
       amountCents: createMoneyCents(amountCents),
-      allocatedAmountCents: allocatedByInstallment.get(row.id) ?? 0,
+      allocatedAmountCents: effectiveAllocated,
     };
   });
 
-  return { inputs, allocatedByInstallment, amountByInstallment };
+  return { inputs, effectiveAllocatedByInstallment, amountByInstallment };
 }
 
 export class PostgresPaymentPersistence implements PaymentPersistence {
@@ -204,7 +247,7 @@ export class PostgresPaymentPersistence implements PaymentPersistence {
 
         const {
           inputs,
-          allocatedByInstallment,
+          effectiveAllocatedByInstallment,
           amountByInstallment,
         } = await loadAllocationInputs(transaction, input.contractId);
         const plan = allocatePayment(input.amountCents, inputs);
@@ -232,7 +275,8 @@ export class PostgresPaymentPersistence implements PaymentPersistence {
         );
 
         for (const allocation of plan) {
-          const prior = allocatedByInstallment.get(allocation.installmentId) ?? 0;
+          const prior =
+            effectiveAllocatedByInstallment.get(allocation.installmentId) ?? 0;
           const installmentAmount = amountByInstallment.get(
             allocation.installmentId,
           );
