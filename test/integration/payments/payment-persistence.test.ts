@@ -146,6 +146,7 @@ describe.sequential("Payment PostgreSQL persistence", () => {
       {
         id: 1,
         paymentId: result.resource.id,
+        refundId: null,
         effectType: "payment_recorded",
         amountCents: 100n,
         currency: "EUR",

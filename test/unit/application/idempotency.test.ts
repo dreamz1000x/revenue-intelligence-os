@@ -5,10 +5,17 @@ import {
   canonicalizeCreateCustomerPayload,
   createIdempotencyKey,
   fingerprintCanonicalPayload,
+  RECORD_REFUND_COMMAND,
+  type CommandType,
 } from "../../../src/application/idempotency.js";
 import { DomainValidationError } from "../../../src/domain/domain-validation-error.js";
 
 describe("command idempotency primitives", () => {
+  it("admits record_refund as a closed command type", () => {
+    const commandType: CommandType = RECORD_REFUND_COMMAND;
+
+    expect(commandType).toBe("record_refund");
+  });
   it("uses a fixed positional JSON array as the customer canonical payload", () => {
     expect(canonicalizeCreateCustomerPayload("Acme, Inc.")).toBe(
       '["Acme, Inc."]',

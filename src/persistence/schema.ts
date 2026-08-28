@@ -9,4 +9,8 @@ export {
   paymentAllocations,
   payments,
 } from "../payments/persistence/payment-schema.js";
+export {
+  refundAllocations,
+  refunds,
+} from "../refunds/persistence/refund-schema.js";
 export { stripeWebhookEvents } from "../stripe/persistence/stripe-webhook-event-schema.js";
