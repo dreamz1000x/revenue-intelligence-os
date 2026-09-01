@@ -51,6 +51,12 @@ function testApp(
       overrides.recordPayment ??
       (async () => ({ resource: PAYMENT, outcome: "created" })),
     getPaymentById: overrides.getPaymentById ?? (async () => PAYMENT),
+    recordRefund: async () => {
+      throw new Error("Refund route must not be called");
+    },
+    getRefundById: async () => {
+      throw new Error("Refund route must not be called");
+    },
     processStripeWebhook: async () => {
       throw new Error("Stripe route must not be called");
     },

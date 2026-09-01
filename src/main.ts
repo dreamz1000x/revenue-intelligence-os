@@ -11,6 +11,9 @@ import { getPaymentByIdUseCase } from "./payments/application/get-payment-by-id.
 import { recordPaymentUseCase } from "./payments/application/record-payment.js";
 import { PostgresPaymentPersistence } from "./payments/persistence/postgres-payment-persistence.js";
 import { createDatabase } from "./persistence/database.js";
+import { getRefundByIdUseCase } from "./refunds/application/get-refund-by-id.js";
+import { recordRefundUseCase } from "./refunds/application/record-refund.js";
+import { PostgresRefundPersistence } from "./refunds/persistence/postgres-refund-persistence.js";
 import { processStripeWebhookUseCase } from "./stripe/application/process-stripe-webhook.js";
 import { PostgresStripeWebhookEventPersistence } from "./stripe/persistence/postgres-stripe-webhook-event-persistence.js";
 
@@ -28,6 +31,7 @@ const clock: Clock = { now: () => new Date() };
 const customerPersistence = new PostgresCustomerPersistence(database);
 const contractPersistence = new PostgresContractPersistence(database);
 const paymentPersistence = new PostgresPaymentPersistence(database);
+const refundPersistence = new PostgresRefundPersistence(database);
 const stripeWebhookEventPersistence =
   new PostgresStripeWebhookEventPersistence(database);
 const recordPayment = recordPaymentUseCase({ clock, persistence: paymentPersistence });
@@ -38,6 +42,8 @@ const app = buildApp({
   getContractById: getContractByIdUseCase(contractPersistence),
   recordPayment,
   getPaymentById: getPaymentByIdUseCase(paymentPersistence),
+  recordRefund: recordRefundUseCase({ clock, persistence: refundPersistence }),
+  getRefundById: getRefundByIdUseCase(refundPersistence),
   processStripeWebhook: processStripeWebhookUseCase({
     clock,
     persistence: stripeWebhookEventPersistence,

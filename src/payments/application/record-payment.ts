@@ -1,5 +1,6 @@
 import type { Clock } from "../../application/clock.js";
 import type { CreateCommandResult } from "../../application/create-command-result.js";
+import { validateApplicationInput } from "../../application/input-validation.js";
 import {
   canonicalizeRecordPaymentPayload,
   createIdempotencyKey,
@@ -24,10 +25,13 @@ export function recordPaymentUseCase(dependencies: {
   return async (
     command: RecordPaymentCommand,
   ): Promise<CreateCommandResult<Payment>> => {
-    const idempotencyKey = createIdempotencyKey(command.idempotencyKey);
-    const contractId = createContractId(command.contractId);
-    const amountCents = createMoneyCents(command.amountCents);
-    const receivedAt = copyPaymentInstant(command.receivedAt, "Payment receivedAt");
+    const { idempotencyKey, contractId, amountCents, receivedAt } =
+      validateApplicationInput(() => ({
+        idempotencyKey: createIdempotencyKey(command.idempotencyKey),
+        contractId: createContractId(command.contractId),
+        amountCents: createMoneyCents(command.amountCents),
+        receivedAt: copyPaymentInstant(command.receivedAt, "Payment receivedAt"),
+      }));
     const createdAt = copyPaymentInstant(
       dependencies.clock.now(),
       "Payment createdAt",

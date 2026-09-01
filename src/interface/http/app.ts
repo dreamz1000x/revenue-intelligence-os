@@ -7,11 +7,14 @@ import type { createCustomerUseCase } from "../../customers/application/create-c
 import type { getCustomerByIdUseCase } from "../../customers/application/get-customer-by-id.js";
 import type { getPaymentByIdUseCase } from "../../payments/application/get-payment-by-id.js";
 import type { recordPaymentUseCase } from "../../payments/application/record-payment.js";
+import type { getRefundByIdUseCase } from "../../refunds/application/get-refund-by-id.js";
+import type { recordRefundUseCase } from "../../refunds/application/record-refund.js";
 import type { processStripeWebhookUseCase } from "../../stripe/application/process-stripe-webhook.js";
 import { registerContractRoutes } from "./contracts-routes.js";
 import { registerCustomerRoutes } from "./customers-routes.js";
 import { registerPublicErrorHandler } from "./error-handler.js";
 import { registerPaymentRoutes } from "./payments-routes.js";
+import { registerRefundRoutes } from "./refunds-routes.js";
 import type { StripeSignatureVerifier } from "./stripe-signature-verifier.js";
 import { registerStripeWebhookRoutes } from "./stripe-webhook-routes.js";
 
@@ -22,6 +25,8 @@ export interface HttpUseCases {
   readonly getContractById: ReturnType<typeof getContractByIdUseCase>;
   readonly recordPayment: ReturnType<typeof recordPaymentUseCase>;
   readonly getPaymentById: ReturnType<typeof getPaymentByIdUseCase>;
+  readonly recordRefund: ReturnType<typeof recordRefundUseCase>;
+  readonly getRefundById: ReturnType<typeof getRefundByIdUseCase>;
   readonly processStripeWebhook: ReturnType<typeof processStripeWebhookUseCase>;
   readonly stripeWebhookClock: Clock;
   readonly verifyStripeSignature: StripeSignatureVerifier;
@@ -34,6 +39,7 @@ export function buildApp(dependencies: HttpUseCases): FastifyInstance {
   registerCustomerRoutes(app, dependencies);
   registerContractRoutes(app, dependencies);
   registerPaymentRoutes(app, dependencies);
+  registerRefundRoutes(app, dependencies);
   registerStripeWebhookRoutes(app, dependencies);
 
   return app;

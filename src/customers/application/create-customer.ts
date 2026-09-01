@@ -1,5 +1,6 @@
 import type { Clock } from "../../application/clock.js";
 import type { CreateCommandResult } from "../../application/create-command-result.js";
+import { validateApplicationInput } from "../../application/input-validation.js";
 import {
   canonicalizeCreateCustomerPayload,
   createIdempotencyKey,
@@ -20,8 +21,10 @@ export function createCustomerUseCase(dependencies: {
   return async (
     command: CreateCustomerCommand,
   ): Promise<CreateCommandResult<Customer>> => {
-    const displayName = validateCustomerDisplayName(command.displayName);
-    const idempotencyKey = createIdempotencyKey(command.idempotencyKey);
+    const { displayName, idempotencyKey } = validateApplicationInput(() => ({
+      displayName: validateCustomerDisplayName(command.displayName),
+      idempotencyKey: createIdempotencyKey(command.idempotencyKey),
+    }));
     const requestFingerprint = fingerprintCanonicalPayload(
       canonicalizeCreateCustomerPayload(displayName),
     );

@@ -73,6 +73,12 @@ function testApp(overrides: Partial<HttpUseCases> = {}) {
     getPaymentById: async () => {
       throw new Error("Payment route must not be called");
     },
+    recordRefund: async () => {
+      throw new Error("Refund route must not be called");
+    },
+    getRefundById: async () => {
+      throw new Error("Refund route must not be called");
+    },
     processStripeWebhook: vi.fn(async () => ({ outcome: "processed" })),
     stripeWebhookClock: { now: () => new Date(RECEIVED_AT) },
     verifyStripeSignature: createStripeSignatureVerifier(SIGNING_SECRET),

@@ -4,7 +4,7 @@ import {
   canonicalizeRecordPaymentPayload,
   fingerprintCanonicalPayload,
 } from "../../../src/application/idempotency.js";
-import { DomainValidationError } from "../../../src/domain/domain-validation-error.js";
+import { ApplicationInputValidationError } from "../../../src/application/input-validation.js";
 import type {
   PaymentPersistence,
   RecordPaymentPersistenceInput,
@@ -85,7 +85,7 @@ describe("RecordPayment", () => {
           amountCents,
           receivedAt: RECEIVED_AT,
         }),
-      ).rejects.toBeInstanceOf(DomainValidationError);
+      ).rejects.toBeInstanceOf(ApplicationInputValidationError);
       expect(persistenceCalled).toBe(false);
     },
   );
@@ -108,6 +108,6 @@ describe("RecordPayment", () => {
         amountCents: 1_000,
         receivedAt: new Date("invalid"),
       }),
-    ).rejects.toBeInstanceOf(DomainValidationError);
+    ).rejects.toBeInstanceOf(ApplicationInputValidationError);
   });
 });

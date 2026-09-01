@@ -4,6 +4,7 @@ import {
   canonicalizeRecordRefundPayload,
   fingerprintCanonicalPayload,
 } from "../../../src/application/idempotency.js";
+import { ApplicationInputValidationError } from "../../../src/application/input-validation.js";
 import { DomainValidationError } from "../../../src/domain/domain-validation-error.js";
 import type {
   RecordRefundPersistenceInput,
@@ -113,7 +114,7 @@ describe("RecordRefund", () => {
         refundedAt: REFUNDED_AT,
         ...override,
       }),
-    ).rejects.toBeInstanceOf(DomainValidationError);
+    ).rejects.toBeInstanceOf(ApplicationInputValidationError);
     expect(persistenceCalled).toBe(false);
   });
 

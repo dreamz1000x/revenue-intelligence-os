@@ -41,6 +41,12 @@ function testApp(
     getPaymentById: async () => {
       throw new Error("Payment route must not be called");
     },
+    recordRefund: async () => {
+      throw new Error("Refund route must not be called");
+    },
+    getRefundById: async () => {
+      throw new Error("Refund route must not be called");
+    },
     processStripeWebhook: async () => {
       throw new Error("Stripe route must not be called");
     },

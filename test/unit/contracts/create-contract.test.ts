@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 
+import { ApplicationInputValidationError } from "../../../src/application/input-validation.js";
 import {
   createContractUseCase,
   MAX_PERSISTED_INSTALLMENT_COUNT,
   validatePersistedInstallmentCount,
 } from "../../../src/contracts/application/create-contract.js";
 import type { ContractPersistence } from "../../../src/contracts/application/contract-persistence.js";
-import { DomainValidationError } from "../../../src/domain/domain-validation-error.js";
 
 describe("CreateContract persistence boundary", () => {
   it("accepts the PostgreSQL INTEGER maximum without allocating a schedule", () => {
@@ -39,9 +39,9 @@ describe("CreateContract persistence boundary", () => {
         firstDueDate: "2026-01-31",
       }),
     ).rejects.toMatchObject({
-      name: "DomainValidationError",
-      code: "INSTALLMENT_COUNT_EXCEEDS_PERSISTENCE_LIMIT",
-    } satisfies Partial<DomainValidationError>);
+      name: "ApplicationInputValidationError",
+      cause: { code: "INSTALLMENT_COUNT_EXCEEDS_PERSISTENCE_LIMIT" },
+    } satisfies Partial<ApplicationInputValidationError>);
     expect(persistenceCalled).toBe(false);
   });
 });

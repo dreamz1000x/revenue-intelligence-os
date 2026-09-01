@@ -1,5 +1,6 @@
 import type { Clock } from "../../application/clock.js";
 import type { CreateCommandResult } from "../../application/create-command-result.js";
+import { validateApplicationInput } from "../../application/input-validation.js";
 import {
   canonicalizeRecordRefundPayload,
   createIdempotencyKey,
@@ -24,10 +25,13 @@ export function recordRefundUseCase(dependencies: {
   return async (
     command: RecordRefundCommand,
   ): Promise<CreateCommandResult<Refund>> => {
-    const idempotencyKey = createIdempotencyKey(command.idempotencyKey);
-    const paymentId = createPaymentId(command.paymentId);
-    const amountCents = createMoneyCents(command.amountCents);
-    const refundedAt = copyRefundInstant(command.refundedAt, "Refund refundedAt");
+    const { idempotencyKey, paymentId, amountCents, refundedAt } =
+      validateApplicationInput(() => ({
+        idempotencyKey: createIdempotencyKey(command.idempotencyKey),
+        paymentId: createPaymentId(command.paymentId),
+        amountCents: createMoneyCents(command.amountCents),
+        refundedAt: copyRefundInstant(command.refundedAt, "Refund refundedAt"),
+      }));
     const createdAt = copyRefundInstant(
       dependencies.clock.now(),
       "Refund createdAt",

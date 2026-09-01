@@ -1,5 +1,6 @@
 import type { Clock } from "../../application/clock.js";
 import type { CreateCommandResult } from "../../application/create-command-result.js";
+import { validateApplicationInput } from "../../application/input-validation.js";
 import {
   canonicalizeCreateContractPayload,
   createIdempotencyKey,
@@ -45,19 +46,34 @@ export function createContractUseCase(dependencies: {
   return async (
     command: CreateContractCommand,
   ): Promise<CreateCommandResult<Contract>> => {
-    const idempotencyKey = createIdempotencyKey(command.idempotencyKey);
-    const customerId = createCustomerId(command.customerId);
-    const totalAmountCents = createMoneyCents(command.totalAmountCents);
-    const currency = validateContractCurrency(command.currency);
-    const firstDueDate = createCivilDate(command.firstDueDate);
-    const installmentCount = validatePersistedInstallmentCount(
-      command.installmentCount,
-    );
-    const schedule = generateInstallmentSchedule(
+    const {
+      idempotencyKey,
+      customerId,
       totalAmountCents,
-      installmentCount,
+      currency,
       firstDueDate,
-    );
+      installmentCount,
+      schedule,
+    } = validateApplicationInput(() => {
+      const validatedTotal = createMoneyCents(command.totalAmountCents);
+      const validatedFirstDueDate = createCivilDate(command.firstDueDate);
+      const validatedInstallmentCount = validatePersistedInstallmentCount(
+        command.installmentCount,
+      );
+      return {
+        idempotencyKey: createIdempotencyKey(command.idempotencyKey),
+        customerId: createCustomerId(command.customerId),
+        totalAmountCents: validatedTotal,
+        currency: validateContractCurrency(command.currency),
+        firstDueDate: validatedFirstDueDate,
+        installmentCount: validatedInstallmentCount,
+        schedule: generateInstallmentSchedule(
+          validatedTotal,
+          validatedInstallmentCount,
+          validatedFirstDueDate,
+        ),
+      };
+    });
     const requestFingerprint = fingerprintCanonicalPayload(
       canonicalizeCreateContractPayload({
         customerId,

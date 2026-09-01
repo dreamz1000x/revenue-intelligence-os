@@ -2,10 +2,12 @@ import type { FastifyInstance, FastifyReply } from "fastify";
 import { ZodError } from "zod";
 
 import { IdempotencyPayloadConflict } from "../../application/idempotency.js";
+import { ApplicationInputValidationError } from "../../application/input-validation.js";
 import { CustomerNotFoundError } from "../../contracts/application/customer-not-found-error.js";
-import { DomainValidationError } from "../../domain/domain-validation-error.js";
 import { ContractNotFoundError } from "../../payments/application/contract-not-found-error.js";
 import { PaymentExceedsOutstandingError } from "../../payments/domain/payment-allocation.js";
+import { OriginalPaymentNotFoundError } from "../../refunds/application/original-payment-not-found-error.js";
+import { RefundExceedsReversibleAmountError } from "../../refunds/domain/refund-allocation.js";
 import { StripeEventEvidenceConflict } from "../../stripe/application/stripe-webhook-event-persistence.js";
 
 export class PublicHttpError extends Error {
@@ -84,7 +86,7 @@ export function registerPublicErrorHandler(app: FastifyInstance): void {
       return sendPublicError(reply, 400, "INVALID_REQUEST", "Invalid request");
     }
 
-    if (error instanceof DomainValidationError) {
+    if (error instanceof ApplicationInputValidationError) {
       return sendPublicError(reply, 422, "INVALID_INPUT", "Invalid input");
     }
 
@@ -130,6 +132,24 @@ export function registerPublicErrorHandler(app: FastifyInstance): void {
         422,
         "PAYMENT_EXCEEDS_OUTSTANDING",
         "Payment exceeds outstanding amount",
+      );
+    }
+
+    if (error instanceof OriginalPaymentNotFoundError) {
+      return sendPublicError(
+        reply,
+        404,
+        "ORIGINAL_PAYMENT_NOT_FOUND",
+        "Original Payment not found",
+      );
+    }
+
+    if (error instanceof RefundExceedsReversibleAmountError) {
+      return sendPublicError(
+        reply,
+        422,
+        "REFUND_EXCEEDS_REVERSIBLE_AMOUNT",
+        "Refund exceeds reversible amount",
       );
     }
 

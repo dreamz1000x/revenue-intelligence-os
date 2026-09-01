@@ -16,6 +16,9 @@ import { getPaymentByIdUseCase } from "../../../src/payments/application/get-pay
 import { recordPaymentUseCase } from "../../../src/payments/application/record-payment.js";
 import { PostgresPaymentPersistence } from "../../../src/payments/persistence/postgres-payment-persistence.js";
 import { createDatabase, type Database } from "../../../src/persistence/database.js";
+import { getRefundByIdUseCase } from "../../../src/refunds/application/get-refund-by-id.js";
+import { recordRefundUseCase } from "../../../src/refunds/application/record-refund.js";
+import { PostgresRefundPersistence } from "../../../src/refunds/persistence/postgres-refund-persistence.js";
 
 const POSTGRES_IMAGE = "postgres:18.4";
 const FIXED_NOW = new Date("2026-08-25T03:00:00.000Z");
@@ -40,6 +43,7 @@ describe.sequential("HTTP and PostgreSQL wiring", () => {
     const customerPersistence = new PostgresCustomerPersistence(database);
     const contractPersistence = new PostgresContractPersistence(database);
     const paymentPersistence = new PostgresPaymentPersistence(database);
+    const refundPersistence = new PostgresRefundPersistence(database);
     app = buildApp({
       createCustomer: createCustomerUseCase({
         clock,
@@ -56,6 +60,11 @@ describe.sequential("HTTP and PostgreSQL wiring", () => {
         persistence: paymentPersistence,
       }),
       getPaymentById: getPaymentByIdUseCase(paymentPersistence),
+      recordRefund: recordRefundUseCase({
+        clock,
+        persistence: refundPersistence,
+      }),
+      getRefundById: getRefundByIdUseCase(refundPersistence),
       processStripeWebhook: async () => {
         throw new Error("Stripe route must not be called");
       },
@@ -69,7 +78,8 @@ describe.sequential("HTTP and PostgreSQL wiring", () => {
 
   beforeEach(async () => {
     await database.client.execute(sql`
-      truncate table stripe_webhook_events, ledger_entries, payment_allocations, payments, installments, contracts,
+      truncate table stripe_webhook_events, ledger_entries, refund_allocations,
+        refunds, payment_allocations, payments, installments, contracts,
         idempotency_records, customers
       restart identity cascade
     `);
@@ -202,6 +212,72 @@ describe.sequential("HTTP and PostgreSQL wiring", () => {
       payment_count: "1",
       allocation_count: "2",
       idempotency_count: "1",
+    });
+
+    const refundRequest = {
+      method: "POST" as const,
+      url: "/refunds",
+      headers: { "idempotency-key": "http-record-refund" },
+      payload: {
+        paymentId: 1,
+        amountCents: 1_000,
+        refundedAt: "2026-09-01T10:30:00+02:00",
+      },
+    };
+    const createRefund = await app.inject(refundRequest);
+    expect(createRefund.statusCode).toBe(201);
+    expect(createRefund.json()).toEqual({
+      id: 1,
+      paymentId: 1,
+      amountCents: 1_000,
+      refundedAt: "2026-09-01T08:30:00.000Z",
+      createdAt: FIXED_NOW.toISOString(),
+      allocations: [{ installmentId: 2, amountCents: 1_000 }],
+    });
+
+    const getRefund = await app.inject({ method: "GET", url: "/refunds/1" });
+    expect(getRefund.statusCode).toBe(200);
+    expect(getRefund.json()).toEqual(createRefund.json());
+
+    const replayRefund = await app.inject({
+      ...refundRequest,
+      payload: {
+        ...refundRequest.payload,
+        refundedAt: "2026-09-01T08:30:00.000Z",
+      },
+    });
+    expect(replayRefund.statusCode).toBe(200);
+    expect(replayRefund.json()).toEqual(createRefund.json());
+
+    const conflictingRefund = await app.inject({
+      ...refundRequest,
+      payload: { ...refundRequest.payload, amountCents: 1_001 },
+    });
+    expect(conflictingRefund.statusCode).toBe(409);
+    expect(conflictingRefund.json().error.code).toBe(
+      "IDEMPOTENCY_PAYLOAD_CONFLICT",
+    );
+
+    const refundState = await database.client.execute<{
+      refund_count: string;
+      allocation_count: string;
+      ledger_count: string;
+      idempotency_count: string;
+      statuses: string;
+    }>(sql`
+      select
+        (select count(*) from refunds) as refund_count,
+        (select count(*) from refund_allocations) as allocation_count,
+        (select count(*) from ledger_entries where effect_type = 'refund_recorded') as ledger_count,
+        (select count(*) from idempotency_records where command_type = 'record_refund') as idempotency_count,
+        (select string_agg(status, ',' order by position) from installments where contract_id = 1) as statuses
+    `);
+    expect(refundState.rows[0]).toEqual({
+      refund_count: "1",
+      allocation_count: "1",
+      ledger_count: "1",
+      idempotency_count: "1",
+      statuses: "paid,partially_paid,pending",
     });
   });
 
