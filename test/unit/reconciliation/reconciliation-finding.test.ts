@@ -1,0 +1,12 @@
+import { describe, expect, it } from "vitest";
+import { DomainValidationError } from "../../../src/domain/domain-validation-error.js";
+import { canonicalizeFindingFingerprint, fingerprintFinding, reconstituteReconciliationFinding } from "../../../src/reconciliation/domain/reconciliation-finding.js";
+
+const input = { ruleCode: "BANK_SETTLEMENT_AMOUNT_MISMATCH" as const, subjectType: "payment" as const, subjectId: 7, amountDeltaCents: -500, evidenceIdentities: ["external_source_event:9", "payment:7"] };
+describe("ReconciliationFinding", () => {
+  it("sorts evidence identities and preserves a signed delta", () => { expect(canonicalizeFindingFingerprint(input)).toBe(canonicalizeFindingFingerprint({ ...input, evidenceIdentities: [...input.evidenceIdentities].reverse() })); expect(canonicalizeFindingFingerprint(input)).toContain("-500"); });
+  it("fingerprints deterministically", () => { expect(fingerprintFinding(input)).toMatch(/^[0-9a-f]{64}$/); expect(fingerprintFinding(input)).toBe(fingerprintFinding(input)); });
+  it("reconstitutes a valid rule/severity/subject combination", () => { const at = new Date("2026-09-01T12:00:00Z"); const finding = reconstituteReconciliationFinding({ id: 1, runId: 2, ruleCode: input.ruleCode, ruleVersion: 1, severity: "critical", subjectType: "payment", subjectId: 7, amountDeltaCents: -500, currency: "EUR", status: "open", fingerprint: fingerprintFinding(input), createdAt: at, statusUpdatedAt: at }); expect(finding.amountDeltaCents).toBe(-500); expect(Object.isFrozen(finding)).toBe(true); });
+  it("rejects an unsafe signed delta and incorrect severity", () => { expect(() => canonicalizeFindingFingerprint({ ...input, amountDeltaCents: Number.MAX_SAFE_INTEGER + 1 })).toThrowError(DomainValidationError); const at = new Date(); expect(() => reconstituteReconciliationFinding({ id: 1, runId: 2, ruleCode: input.ruleCode, ruleVersion: 1, severity: "warning", subjectType: "payment", subjectId: 7, amountDeltaCents: -500, currency: "EUR", status: "open", fingerprint: fingerprintFinding(input), createdAt: at, statusUpdatedAt: at })).toThrowError(DomainValidationError); });
+  it("rejects a subject that does not belong to the rule", () => { const at = new Date(); expect(() => reconstituteReconciliationFinding({ id: 1, runId: 2, ruleCode: input.ruleCode, ruleVersion: 1, severity: "critical", subjectType: "refund", subjectId: 7, amountDeltaCents: -500, currency: "EUR", status: "open", fingerprint: fingerprintFinding(input), createdAt: at, statusUpdatedAt: at })).toThrowError(DomainValidationError); });
+});
