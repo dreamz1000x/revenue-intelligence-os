@@ -40,7 +40,7 @@ This slice processes the durable receipt synchronously during the HTTP request. 
 
 ## Explicit exclusions
 
-This slice does not create PaymentIntents, call Stripe APIs, synchronize Stripe customers, handle refunds, subscriptions, Checkout, additional event types, reconciliation, queues, workers, Redis, or an outbox. It does not introduce a generic provider abstraction or expose a Ledger HTTP API.
+This slice does not create PaymentIntents, call Stripe APIs, synchronize Stripe customers, ingest Stripe Refund events, handle subscriptions or Checkout, process additional event types, perform reconciliation, or use queues, workers, Redis, or an outbox. Core Refunds v1 exists through the direct application and HTTP boundary; it is not driven by Stripe evidence. This slice does not introduce a generic provider abstraction or expose a Ledger HTTP API.
 
 ## Manual Test Mode acceptance
 

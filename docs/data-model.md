@@ -13,7 +13,11 @@ Contract 1 ── N Installment
 Contract 1 ── N Payment
 Payment 1 ── N PaymentAllocation
 Installment 1 ── N PaymentAllocation
+Payment 1 ── N Refund
+Refund 1 ── N RefundAllocation
+PaymentAllocation 1 ── N RefundAllocation
 Payment 1 ── 1 LedgerEntry
+Refund 1 ── 1 LedgerEntry
 StripeWebhookEvent N ── 0..1 Payment
 ```
 
@@ -60,9 +64,9 @@ and its complete schedule commit atomically.
 | `status` | Persisted projection: `pending`, `partially_paid`, or `paid`. |
 | `created_at` | Creation instant with time zone. |
 
-`(contract_id, position)` is unique. Installment status is derived from the sum
-of immutable PaymentAllocations during RecordPayment; it is not an independent
-financial fact.
+`(contract_id, position)` is unique. Installment status is derived from effective
+paid cents: gross immutable PaymentAllocations minus immutable
+RefundAllocations. It is not an independent financial fact.
 
 ## `payments`
 
@@ -93,13 +97,42 @@ and PaymentIntent identity remain in `stripe_webhook_events`.
 
 The primary key is `(payment_id, installment_id)`. Allocations are immutable
 through current application use cases, contain no zero amounts, and conserve the
-complete Payment amount.
+complete Payment amount. They preserve gross historical allocation; after a
+Refund they are not, by themselves, the current paid balance.
+
+## `refunds`
+
+| Column | Meaning |
+| --- | --- |
+| `id` | Generated integer primary key. |
+| `payment_id` | Required foreign key to the original Payment. |
+| `amount_cents` | Positive safe-integer compensating amount. |
+| `refunded_at` | Caller-supplied Refund assertion instant. |
+| `created_at` | Application-clock recording instant. |
+
+A Refund is immutable and references exactly one original Payment. Partial,
+full, and multiple Refunds are supported, but cumulative Refund amounts cannot
+exceed that Payment's amount.
+
+## `refund_allocations`
+
+| Column | Meaning |
+| --- | --- |
+| `refund_id` | Part of the primary key and references the parent Refund. |
+| `payment_id` | Carries and enforces the original Payment identity. |
+| `installment_id` | Part of the primary key and identifies the compensated Installment. |
+| `amount_cents` | Positive safe-integer amount reversed from the original allocation. |
+
+Composite foreign keys require each RefundAllocation to belong to its Refund's
+Payment and to reference an existing PaymentAllocation for that same Payment and
+Installment. Refund allocation proceeds by descending Installment position and
+never creates a negative PaymentAllocation or mutates historical allocations.
 
 ## `idempotency_records`
 
 | Column | Meaning |
 | --- | --- |
-| `command_type` | `create_customer`, `create_contract`, or `record_payment`. |
+| `command_type` | `create_customer`, `create_contract`, `record_payment`, or `record_refund`. |
 | `idempotency_key` | Printable client or derived command key, up to 128 characters. |
 | `request_fingerprint` | Lowercase 64-character hexadecimal payload fingerprint. |
 | `resource_id` | Identifier of the command result. |
@@ -115,15 +148,17 @@ within its command type and is not a generic database foreign key.
 | Column | Meaning |
 | --- | --- |
 | `id` | Generated integer primary key. |
-| `payment_id` | Required and unique foreign key to `payments.id`. |
-| `effect_type` | Fixed to `payment_recorded`. |
-| `amount_cents` | Positive safe-integer amount copied from Payment. |
+| `payment_id` | Nullable unique Payment source; required only for `payment_recorded`. |
+| `refund_id` | Nullable unique Refund source; required only for `refund_recorded`. |
+| `effect_type` | `payment_recorded` or `refund_recorded`. |
+| `amount_cents` | Positive safe-integer amount copied from the source fact. |
 | `currency` | Fixed to `EUR`. |
-| `event_at` | Payment `received_at`. |
-| `recorded_at` | Payment `created_at`. |
+| `event_at` | Payment `received_at` or Refund `refunded_at`, according to effect type. |
+| `recorded_at` | Source Payment or Refund `created_at`. |
 
-The unique Payment foreign key establishes at most one entry per Payment. The
-RecordPayment transaction and migration backfill establish existence within the
+Source/effect constraints require exactly one source of the correct type. Unique
+source foreign keys establish at most one entry per Payment and per Refund.
+RecordPayment and RecordRefund establish existence atomically within the
 supported boundaries. PostgreSQL rejects `UPDATE` and `DELETE` through the
 append-only trigger; administrative `TRUNCATE` remains outside that protection.
 
@@ -154,6 +189,6 @@ link, while a failed event has no Payment link and retains an error code.
 
 ## Current exclusions
 
-There are no persisted models for refunds, chargebacks, bank movements,
-reconciliation exceptions, analytics, accounting accounts, journals, postings,
-AI conversations, or frontend state.
+There are no persisted models for chargebacks, bank movements, reconciliation
+exceptions, analytics, accounting accounts, journals, postings, AI
+conversations, or frontend state. Stripe Refund evidence is not ingested.

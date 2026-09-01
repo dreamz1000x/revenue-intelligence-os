@@ -71,16 +71,23 @@ schedule.
 ### FIN-06 — Installment status is a derived projection
 
 An Installment status is `pending`, `partially_paid`, or `paid`. RecordPayment
-derives this projection from the Installment amount and the sum of its immutable
-PaymentAllocations. Status is not an independent source of financial truth.
+and RecordRefund derive this projection from the Installment amount and effective
+paid cents:
+
+```text
+effective paid = gross PaymentAllocations - RefundAllocations
+```
+
+Status is not an independent source of financial truth. A Refund can move status
+backward, and a later Payment can repay reopened outstanding.
 
 ## 3. Command idempotency
 
 ### FIN-07 — Repeating a command does not repeat its effect
 
-`create_customer`, `create_contract`, and `record_payment` use a command type,
-caller-provided or derived idempotency key, and SHA-256 fingerprint of canonical
-validated input.
+`create_customer`, `create_contract`, `record_payment`, and `record_refund` use
+a command type, caller-provided or derived idempotency key, and SHA-256
+fingerprint of canonical validated input.
 
 - Same command type, same key, same payload: return the existing resource as a
   replay without another effect.
@@ -93,6 +100,10 @@ effects. A rollback leaves the command retryable.
 Command identity is distinct from Stripe Event identity. Stripe derives the
 RecordPayment key from the exact PaymentIntent identity so different Event
 deliveries for one PaymentIntent converge on the same financial command.
+
+The canonical RecordRefund payload is
+`[paymentId, amountCents, refundedAt.toISOString()]`. Its financial effects and
+idempotency record commit atomically.
 
 ## 4. Payment and allocation
 
@@ -120,21 +131,22 @@ Installments. It creates no zero allocation, allocates every Payment cent exactl
 once, and rejects an amount greater than the Contract's total outstanding
 balance. No unapplied balance is retained.
 
-### FIN-10 — Payments against one Contract are serialized
+### FIN-10 — Payments and Refunds against one Contract are serialized
 
-RecordPayment runs at PostgreSQL `READ COMMITTED` and locks the Contract row with
-`SELECT ... FOR UPDATE`. The command idempotency record is checked again after
-the lock. Allocation is calculated from the locked state before Payment,
-PaymentAllocations, Installment projections, LedgerEntry, and idempotency record
-commit atomically.
+RecordPayment and RecordRefund run at PostgreSQL `READ COMMITTED` and lock the
+Contract row with `SELECT ... FOR UPDATE`. The command idempotency record is
+checked again after the lock. Allocation is calculated from coherent locked
+state before the financial fact, allocations, Installment projections,
+LedgerEntry, and idempotency record commit atomically.
 
-This prevents concurrent payments for the same Contract from allocating against
-the same outstanding cents. PostgreSQL is the coordination mechanism; no Redis,
-advisory lock, or distributed lock is used.
+This prevents concurrent Payments from allocating the same outstanding cents,
+prevents concurrent Refunds from cumulatively exceeding one Payment, and keeps
+Payment-after-Refund allocation coherent. PostgreSQL is the coordination
+mechanism; no Redis, advisory lock, or distributed lock is used.
 
 ## 5. Immutable financial-effect ledger
 
-### FIN-11 — Every supported Payment has exactly one ledger effect
+### FIN-11 — Every supported financial fact has exactly one ledger effect
 
 Each committed Payment written through RecordPayment produces exactly one
 LedgerEntry with:
@@ -149,13 +161,27 @@ The Payment foreign key prevents orphan entries, uniqueness on `payment_id`
 prevents multiple entries, RecordPayment establishes existence for new Payments,
 and migration `0003` backfilled retained historical Payments.
 
+Each committed Refund written through RecordRefund produces exactly one
+LedgerEntry with:
+
+- `effect_type = refund_recorded`;
+- the Refund's exact positive amount;
+- `currency = EUR`;
+- `event_at = Refund.refundedAt`;
+- `recorded_at = Refund.createdAt`.
+
+Each entry has exactly one concrete source. The Refund foreign key prevents
+orphan entries, uniqueness on `refund_id` prevents duplicates, and RecordRefund
+establishes existence atomically. A Refund never modifies its original
+Payment's ledger entry.
+
 ### FIN-12 — Ledger evidence is append-only
 
 Application persistence exposes no update or delete operation for LedgerEntry,
 and PostgreSQL rejects `UPDATE` and `DELETE`. Administrative `TRUNCATE` remains
 available for controlled test or database administration boundaries.
 
-Corrections require future compensating effects; accepted history must not be
+Corrections use additional compensating effects; accepted history must not be
 rewritten. The current ledger is an immutable financial-effect ledger, not
 double-entry accounting, and makes no balance, settlement, recognition, or
 reconciliation claim.
@@ -215,21 +241,43 @@ This preserves one Payment and one LedgerEntry.
 Arbitrary exception messages, stack traces, signing secrets, and raw payloads are
 not persisted as failure text by this boundary.
 
-## 7. Current exclusions
+## 7. Refund and reversal
 
-The current invariants do not claim implementation of refunds, chargebacks,
-compensating ledger effects, bank ingestion, reconciliation, accounting,
-analytics, or settlement verification. Those capabilities require separately
-defined facts, transitions, and tests before they can extend this model.
+### FIN-17 — Refund allocation is deterministic and bounded
 
-### FIN-17 — Future refunds must preserve accepted history
+A Refund is a positive immutable fact against exactly one original Payment.
+RecordRefund reverses only that Payment's allocations, ordered by Installment
+position descending. It skips amounts already reversed by earlier Refunds,
+allocates every Refund cent exactly once, and rejects an amount greater than the
+Payment's remaining reversible amount.
 
-When refunds are introduced, they must add an explicitly related compensating
-effect. They must not delete or rewrite the original Payment, allocations,
-provider evidence, or LedgerEntry. This invariant is retained as a design
-requirement but is not implemented by the current system.
+Partial, full, and multiple Refunds are supported. No negative
+PaymentAllocation is created, and historical Payment, PaymentAllocation, and
+provider evidence are never rewritten.
 
-### FIN-18 — Future source discrepancies must remain visible
+### FIN-18 — Effective paid state accounts for Refunds
+
+For each Installment, current effective paid cents equal gross
+PaymentAllocations minus RefundAllocations. Refunds may move an Installment from
+`paid` to `partially_paid` or `pending`; a later Payment may repay the reopened
+outstanding amount. Gross allocation history may therefore exceed the
+contractual amount after Refund and repayment while effective paid remains
+bounded.
+
+### FIN-19 — Refund recording is atomic and idempotent
+
+RecordRefund commits the Refund, RefundAllocations, effective Installment
+projection, one `refund_recorded` LedgerEntry, and its `record_refund`
+idempotency record in one transaction. Same key and canonical payload replay the
+existing Refund; the same key with a different payload is a conflict.
+
+## 8. Current exclusions
+
+The current invariants do not claim implementation of Stripe Refund ingestion,
+automatic provider refunds, chargebacks, bank ingestion, reconciliation,
+accounting, analytics, or settlement verification.
+
+### FIN-20 — Future source discrepancies must remain visible
 
 When multiple financial sources are introduced, differences between Contracts,
 provider evidence, bank records, and internal effects must be represented with

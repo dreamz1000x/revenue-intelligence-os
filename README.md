@@ -1,8 +1,8 @@
 # Revenue Intelligence OS
 
 Revenue Intelligence OS is an evolving backend portfolio project for modelling
-financed customer contracts and recording payment effects with explicit,
-auditable semantics. The current implementation is a TypeScript modular
+financed customer contracts and recording payment and refund effects with
+explicit, auditable semantics. The current implementation is a TypeScript modular
 monolith backed by PostgreSQL; it is not presented as production-ready.
 
 ## What it demonstrates
@@ -10,8 +10,10 @@ monolith backed by PostgreSQL; it is not presented as production-ready.
 - Deterministic installment schedules with exact integer-cent conservation.
 - PostgreSQL-backed customer and financed-contract persistence.
 - Deterministic partial and spanning payment allocation.
-- Idempotent customer, contract, and payment commands.
-- An immutable financial-effect ledger coupled transactionally to payments.
+- Deterministic partial, full, and repeated refund allocation.
+- Idempotent customer, contract, payment, and refund commands.
+- An immutable financial-effect ledger coupled transactionally to Payments and
+  Refunds.
 - Signed Stripe Test Mode webhook ingestion for `payment_intent.succeeded`.
 - Byte-for-byte raw webhook evidence retention and duplicate detection.
 - Database-backed processing claims, stale-lease recovery, and safe retries.
@@ -35,11 +37,17 @@ ledger model.
 
 ## Financial guarantees
 
-Money is represented as positive integer euro cents. Installment generation and
-payment allocation are deterministic, conserve every cent, and reject
-overpayment rather than retaining an unapplied balance. A successfully recorded
-Payment and its allocations, installment projection, ledger effect, and command
-idempotency record commit atomically.
+Money is represented as positive integer euro cents. Installment generation,
+payment allocation, and refund reversal are deterministic and conserve every
+cent. Payments reject overpayment; Refunds reject amounts beyond the original
+Payment's still-reversible amount. Each financial command, its allocations,
+installment projection, ledger effect, and idempotency record commit atomically.
+
+PaymentAllocations preserve gross accepted history. RefundAllocations preserve
+compensating history without rewriting it. Current installment paid state is
+derived as gross PaymentAllocations minus RefundAllocations, so a Refund can
+reopen an Installment and a later Payment can repay it. See
+[Refund semantics](docs/refund-semantics.md).
 
 A Payment means that the application accepted and durably recorded an assertion
 that money was received for one Contract. It does **not** prove Stripe settlement,
@@ -133,10 +141,18 @@ With the example `HOST` and `PORT`, the service listens on
 | `GET` | `/contracts/:contractId` | Retrieve a contract and ordered installments. |
 | `POST` | `/payments` | Record and allocate a payment. |
 | `GET` | `/payments/:id` | Retrieve a payment and its allocations. |
+| `POST` | `/refunds` | Record and allocate a refund against one Payment. |
+| `GET` | `/refunds/:id` | Retrieve a refund and its allocations. |
 | `POST` | `/webhooks/stripe` | Receive a signed Stripe webhook. |
 
-Customer, contract, and payment creation require an `Idempotency-Key` header.
-The Stripe endpoint requires exactly one `Stripe-Signature` header.
+Customer, contract, payment, and refund creation require an `Idempotency-Key`
+header. The Stripe endpoint requires exactly one `Stripe-Signature` header.
+
+`POST /refunds` accepts `paymentId`, positive integer `amountCents`, and an
+offset-aware `refundedAt` instant. It returns `201` when created and `200` when
+the same key and canonical payload are replayed. Missing original Payments,
+over-refunds, conflicting idempotency payloads, and invalid application input
+use stable public errors; unexpected internal failures are sanitized.
 
 ## Verification
 
@@ -155,17 +171,20 @@ Docker-compatible runtime must be available.
 - [Problem definition and implemented boundary](docs/problem.md)
 - [Financial invariants](docs/financial-invariants.md)
 - [Ledger semantics](docs/ledger-semantics.md)
+- [Refund semantics](docs/refund-semantics.md)
 - [Stripe webhook semantics](docs/stripe-webhook-semantics.md)
 - [Modular monolith ADR](docs/adr/0001-modular-monolith.md)
 - [Immutable financial-effect ledger ADR](docs/adr/0002-immutable-financial-effect-ledger.md)
 
 ## Current limitations
 
-The current backend does not implement refunds, chargebacks, reconciliation,
-bank ingestion, analytics, a dashboard, an AI assistant, a frontend, or a public
-deployment. Stripe support is deliberately limited to signed Test Mode
-`payment_intent.succeeded` ingestion; it does not create PaymentIntents or call
-Stripe APIs.
+The current backend does not implement chargebacks, reconciliation, bank
+ingestion, analytics, a dashboard, authentication or RBAC, an AI assistant, a
+frontend, or a public deployment. Stripe support is deliberately limited to
+signed Test Mode `payment_intent.succeeded` ingestion: it does not ingest Stripe
+Refund events, initiate provider refunds, create PaymentIntents, or call Stripe
+APIs. Recorded Payments and Refunds do not prove provider or bank settlement,
+revenue recognition, or reconciliation.
 
 ## License
 

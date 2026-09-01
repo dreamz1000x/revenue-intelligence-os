@@ -10,35 +10,44 @@ A Payment does not prove provider authorization, capture, settlement, bank settl
 
 Contract and Installment creation have no ledger effect. Every committed Payment produces exactly one `payment_recorded` LedgerEntry, regardless of how many Installments receive allocations. PaymentAllocation remains authoritative for that allocation detail.
 
-## Current effect
+## Refund meaning
 
-The LedgerEntry derives only from the persisted Payment:
+A Refund means that the application accepted and durably recorded a positive EUR compensating assertion against one original Payment at `refundedAt`. It does not prove provider initiation, Stripe settlement, bank settlement, revenue recognition, or accounting treatment.
 
-| LedgerEntry field | Meaning and source |
-| --- | --- |
-| `paymentId` | Concrete, unique reference to `Payment.id` |
-| `effectType` | Fixed as `payment_recorded` |
-| `amountCents` | Exact `Payment.amountCents` |
-| `currency` | Fixed as `EUR` |
-| `eventAt` | `Payment.receivedAt`: when the caller says the money was received |
-| `recordedAt` | `Payment.createdAt`: when the application recorded the Payment |
+Every committed Refund produces exactly one positive `refund_recorded` LedgerEntry. The effect type communicates compensation; the original Payment and its `payment_recorded` entry remain unchanged. RefundAllocation remains authoritative for Installment-level reversal detail.
+
+## Supported effects
+
+Each LedgerEntry derives from exactly one concrete source:
+
+| LedgerEntry field | `payment_recorded` | `refund_recorded` |
+| --- | --- | --- |
+| `paymentId` | Unique `Payment.id` | `null` |
+| `refundId` | `null` | Unique `Refund.id` |
+| `effectType` | `payment_recorded` | `refund_recorded` |
+| `amountCents` | Exact `Payment.amountCents` | Exact positive `Refund.amountCents` |
+| `currency` | `EUR` | `EUR` |
+| `eventAt` | `Payment.receivedAt` | `Refund.refundedAt` |
+| `recordedAt` | `Payment.createdAt` | `Refund.createdAt` |
 
 Money is represented only as positive integer cents, bounded by JavaScript's maximum safe integer. Floating-point monetary values are not used.
 
-The Contract is intentionally recovered through LedgerEntry → Payment → Contract. The ledger does not duplicate Contract or Installment allocation identifiers.
+The Contract is recovered through LedgerEntry → Payment → Contract, or through LedgerEntry → Refund → Payment → Contract. The ledger does not duplicate Contract or Installment allocation identifiers.
 
 ## Guarantees
 
-- Referential integrity: the `paymentId` foreign key prevents an orphan LedgerEntry from referring to a missing Payment.
-- At-most-one: the unique `paymentId` constraint prevents multiple LedgerEntries for one Payment.
+- Referential integrity: concrete `paymentId` and `refundId` foreign keys prevent orphan LedgerEntries.
+- Source consistency: each effect has exactly one source of the matching type.
+- At-most-one: unique source constraints prevent multiple LedgerEntries for one Payment or Refund.
 - Existence for new Payments: the authorized RecordPayment transaction inserts Payment, PaymentAllocations, Installment projection, LedgerEntry, and command-idempotency record atomically, so a successfully committed Payment written through that boundary has a LedgerEntry.
 - Existence for historical Payments: migration `0003` creates one LedgerEntry for every retained Payment without modifying those Payments.
 - Exactly-one: within the supported RecordPayment and migration boundaries, the existence mechanisms above combine with the unique `paymentId` constraint to establish exactly one LedgerEntry per Payment.
-- A command replay returns the existing Payment and does not produce another ledger effect.
+- Refund existence: RecordRefund atomically inserts Refund, RefundAllocations, Installment projection, LedgerEntry, and command-idempotency record, establishing exactly one entry per committed Refund.
+- A command replay returns the existing Payment or Refund and does not produce another ledger effect.
 - Ledger entries are append-only. Application persistence exposes no update or delete operation, and PostgreSQL rejects `UPDATE` and `DELETE` against the table. Administrative `TRUNCATE` is deliberately unaffected.
 
-Financial corrections are represented by future compensating effects, not by rewriting or deleting accepted history. The semantics of those effects must be decided in their own implementation boundary.
+Financial corrections are represented by additional compensating effects, not by rewriting or deleting accepted history. Refunds v1 implements the first such effect as `refund_recorded`.
 
 ## Explicit exclusions
 
-This ledger does not currently model accounts, journals, postings, debit or credit, balances, refunds, chargebacks, provider events, reconciliation, revenue recognition, accounts receivable, accounting dates, or posting dates. It has no query use case or HTTP endpoint in this slice.
+This ledger does not model accounts, journals, postings, debit or credit, balances, chargebacks, provider events, reconciliation, revenue recognition, accounts receivable, accounting dates, or posting dates. It has no query use case or HTTP endpoint. A `refund_recorded` effect records an internal Refund fact; it does not prove a Stripe or bank refund.

@@ -21,21 +21,27 @@ customer
 → deterministic installment schedule
 → payment
 → deterministic allocations
-→ immutable financial-effect ledger
+→ refund and deterministic compensating allocations
+→ effective installment projection
+→ immutable payment/refund financial-effect ledger
 → signed Stripe payment webhook ingestion
 ```
 
 The implementation persists customers and financed contracts in PostgreSQL,
 generates schedules with exact integer-cent conservation, records idempotent
 partial or spanning payments, and writes one immutable `payment_recorded` ledger
-effect for each committed Payment. Signed Stripe Test Mode
+effect for each committed Payment. It also records partial, full, and repeated
+Refunds against an original Payment, reverses that Payment's allocations in
+descending installment position, and writes one immutable `refund_recorded`
+compensating effect without rewriting Payment history. Signed Stripe Test Mode
 `payment_intent.succeeded` events can supply that payment assertion through a
 durable, duplicate-safe ingestion boundary.
 
 ## Outside the current boundary
 
-The backend does not yet implement refunds, chargebacks, bank ingestion,
-reconciliation, analytics, dashboards, an AI assistant, a frontend, or public
-deployment. A Payment is an accepted and durably recorded assertion of money
-received for a Contract; it is not proof of provider or bank settlement, revenue
-recognition, or reconciliation.
+The backend does not yet implement Stripe Refund ingestion, automatic provider
+refunds, chargebacks, bank ingestion, reconciliation, analytics, dashboards,
+authentication or RBAC, an AI assistant, a frontend, or public deployment. A
+Payment or Refund is an accepted and durably recorded internal financial fact;
+neither proves provider or bank settlement, revenue recognition, or
+reconciliation.

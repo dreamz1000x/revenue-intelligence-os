@@ -50,11 +50,20 @@ allocation across Installments by ascending position, payment command
 idempotency, persistence, and payment HTTP routes. Partial payments and payments
 spanning multiple Installments are supported; overpayment is rejected.
 
+### Refunds
+
+The `refunds` boundary owns immutable Refund and RefundAllocation facts,
+deterministic reversal of one original Payment's allocations by descending
+Installment position, cumulative over-refund protection, command idempotency,
+PostgreSQL persistence, and Refund HTTP routes. Partial, full, and multiple
+Refunds per Payment are supported.
+
 ### Ledger
 
-The `ledger` boundary owns the immutable financial effect created for a Payment.
-The only current effect is `payment_recorded`. This is not a double-entry
-accounting ledger and makes no settlement, revenue-recognition, or
+The `ledger` boundary owns immutable financial effects. A Payment creates a
+`payment_recorded` effect and a Refund creates a positive `refund_recorded`
+compensating effect. Each entry has exactly one concrete source. This is not a
+double-entry accounting ledger and makes no settlement, revenue-recognition, or
 accounts-receivable claim.
 
 ### Stripe webhook ingestion
@@ -124,15 +133,47 @@ uses `PaymentIntent.metadata.contract_id`, `amount_received`, and `eur`. Differe
 Stripe Event deliveries for the same PaymentIntent converge on the same
 RecordPayment command identity.
 
+### Direct refund
+
+```text
+POST /refunds + Idempotency-Key
+→ validate caller Payment, amount, and refundedAt
+→ lock the original Payment's Contract row
+→ recheck idempotency
+→ load original and previously refunded allocations
+→ reverse still-reversible amounts by position DESC
+→ Refund + RefundAllocations
+→ effective Installment projection
+→ refund_recorded LedgerEntry
+→ idempotency record
+→ atomic commit
+```
+
+`GET /refunds/:id` returns the immutable Refund and its explicit allocations.
+Stripe remains a separate provider-evidence boundary and currently supplies
+Payments only; Stripe Refund events are not ingested.
+
 ## Transactions and concurrency
 
 PostgreSQL transactions use `READ COMMITTED`.
 
-RecordPayment locks the owning Contract row with `SELECT ... FOR UPDATE`. This is
-the serialization boundary for payments against one Contract. Idempotency is
-checked again after the lock, allocation is calculated from the locked financial
-state, and Payment, PaymentAllocations, Installment projections, LedgerEntry, and
-the command idempotency record commit atomically.
+RecordPayment and RecordRefund lock the owning Contract row with
+`SELECT ... FOR UPDATE`. This is the shared serialization boundary for financial
+changes against one Contract. Idempotency is checked again after the lock, each
+allocation is calculated from coherent effective state, and the financial fact,
+allocations, Installment projections, LedgerEntry, and command idempotency record
+commit atomically. Concurrent Refunds therefore cannot cumulatively reverse more
+than the original Payment allocated.
+
+Gross PaymentAllocation history is not the current paid balance after a Refund.
+The projection input is:
+
+```text
+effective paid = PaymentAllocations - RefundAllocations
+```
+
+Refunds can move Installments from `paid` to `partially_paid` or `pending`, and a
+later Payment can allocate against the reopened outstanding amount.
 
 Webhook processing ownership is separate from the RecordPayment transaction. A
 conditional PostgreSQL update assigns a random UUID processing token and a
@@ -143,6 +184,14 @@ avoids holding a webhook-event transaction open while RecordPayment executes.
 If the financial transaction commits but webhook finalization fails, a retry
 reclaims the event and RecordPayment returns the existing Payment through its
 idempotency boundary before finalization is attempted again.
+
+## Public error boundary
+
+Malformed transport input maps to `400 INVALID_REQUEST`. Domain validation is
+mapped to `422 INVALID_INPUT` only when an application boundary explicitly
+classifies it as caller-controlled. Business and missing-resource errors retain
+their dedicated mappings. Raw persistence, aggregate-reconstitution, and other
+internal validation failures reach the sanitized `500 INTERNAL_ERROR` response.
 
 ## Technology and workflow
 
@@ -168,7 +217,8 @@ The project does not use `drizzle-kit push`.
 
 ## Current non-goals
 
-The current architecture does not implement refunds, chargebacks, bank
-ingestion, reconciliation, analytics, an AI assistant, a frontend, Redis,
-queues, workers, microservices, or public deployment. Stripe ingestion does not
-create PaymentIntents or prove provider or bank settlement.
+The current architecture does not implement Stripe Refund ingestion, automatic
+provider refunds, chargebacks, bank ingestion, reconciliation, analytics,
+authentication or RBAC, an AI assistant, a frontend, Redis, queues, workers,
+microservices, or public deployment. Stripe ingestion does not create
+PaymentIntents or prove provider or bank settlement.
