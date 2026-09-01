@@ -75,6 +75,18 @@ export function canonicalizeRecordPaymentPayload(input: {
   ]);
 }
 
+export function canonicalizeRecordRefundPayload(input: {
+  readonly paymentId: number;
+  readonly amountCents: number;
+  readonly refundedAt: Date;
+}): string {
+  return JSON.stringify([
+    input.paymentId,
+    input.amountCents,
+    input.refundedAt.toISOString(),
+  ]);
+}
+
 export function fingerprintCanonicalPayload(
   canonicalPayload: string,
 ): RequestFingerprint {
