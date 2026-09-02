@@ -271,16 +271,41 @@ projection, one `refund_recorded` LedgerEntry, and its `record_refund`
 idempotency record in one transaction. Same key and canonical payload replay the
 existing Refund; the same key with a different payload is a conflict.
 
-## 8. Current exclusions
+## 8. Reconciliation
 
-The current invariants do not claim implementation of Stripe Refund ingestion,
-automatic provider refunds, chargebacks, bank ingestion, reconciliation,
-accounting, analytics, or settlement verification.
-
-### FIN-20 — Future source discrepancies must remain visible
+### FIN-20 — Source discrepancies remain visible
 
 When multiple financial sources are introduced, differences between Contracts,
 provider evidence, bank records, and internal effects must be represented with
-enough evidence to investigate and resolve them. Reconciliation must not silently
-select one conflicting value. This invariant is retained as a design requirement
-but reconciliation is not implemented by the current system.
+enough evidence to investigate and resolve them. Reconciliation does not silently
+select one conflicting value.
+
+### FIN-21 — Runs use immutable knowledge-time snapshots
+
+A global Run evaluates only evidence known by its cutoff. Internal facts use
+their recording timestamps, Stripe links become visible at processing time, and
+external evidence uses its application `created_at`; an earlier external
+`occurred_at` does not backdate system knowledge. Completed Runs and their
+Findings remain historical when later evidence arrives.
+
+### FIN-22 — Reconciliation v1 is exact and deterministic
+
+The versioned rule set contains exactly five rules: missing internal Payment for
+Stripe success, missing bank settlement for internal Payment, bank settlement
+amount mismatch, missing bank outflow for internal Refund, and orphan bank
+movement. Matching uses explicit internal IDs or a unique exact provider
+reference. No fuzzy matching, tolerance, AI inference, or automatic remediation
+is performed.
+
+### FIN-23 — Finding evidence and resolution history are auditable
+
+Every Finding has deterministic identity and typed references to its retained
+evidence. Operator actions follow explicit legal transitions and are appended in
+stable order. Replaying one action key and payload returns the same action; a
+changed payload conflicts.
+
+## 9. Current exclusions
+
+The current invariants do not claim implementation of Stripe Refund ingestion,
+automatic provider refunds, chargebacks, real bank ingestion, accounting,
+analytics, settlement verification, fuzzy matching, or AI remediation.

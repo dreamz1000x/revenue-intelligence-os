@@ -73,6 +73,14 @@ interface, verifies and ingests signed Stripe Test Mode webhook events. It
 retains original evidence, coordinates processing ownership, maps supported
 events to RecordPayment, and finalizes durable processing state.
 
+### Reconciliation
+
+The `reconciliation` boundary retains simulated external-source evidence,
+evaluates the fixed v1 rule set, persists immutable historical Runs and typed
+Finding evidence, and records idempotent operator actions. It compares four
+evidence domains: contractual state, internal financial effects, Stripe provider
+evidence, and simulated external-bank movements. Matching is exact only.
+
 ## Request and event flows
 
 ### Customer creation
@@ -153,6 +161,25 @@ POST /refunds + Idempotency-Key
 Stripe remains a separate provider-evidence boundary and currently supplies
 Payments only; Stripe Refund events are not ingested.
 
+### Reconciliation Run and resolution
+
+```text
+POST /external-source-events
+→ retain immutable simulated-bank evidence
+POST /reconciliation/runs + Idempotency-Key
+→ take a knowledge-time snapshot at cutoff
+→ evaluate the five reconciliation-v1 rules exactly
+→ persist Run + Findings + typed evidence atomically
+POST /reconciliation/findings/:id/actions + Idempotency-Key
+→ serialize a legal operator transition
+→ retain ordered action history
+```
+
+Runs execute in a PostgreSQL repeatable-read transaction. Their cutoff selects
+facts by when the system knew them, not merely by an external `occurredAt` date.
+Completed Runs are historical records and are not recomputed when later evidence
+arrives.
+
 ## Transactions and concurrency
 
 PostgreSQL transactions use `READ COMMITTED`.
@@ -218,7 +245,8 @@ The project does not use `drizzle-kit push`.
 ## Current non-goals
 
 The current architecture does not implement Stripe Refund ingestion, automatic
-provider refunds, chargebacks, bank ingestion, reconciliation, analytics,
+provider refunds, chargebacks, real bank ingestion, fuzzy matching, AI
+remediation, analytics,
 authentication or RBAC, an AI assistant, a frontend, Redis, queues, workers,
 microservices, or public deployment. Stripe ingestion does not create
 PaymentIntents or prove provider or bank settlement.

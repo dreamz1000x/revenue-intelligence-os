@@ -25,6 +25,7 @@ customer
 → effective installment projection
 → immutable payment/refund financial-effect ledger
 → signed Stripe payment webhook ingestion
+→ deterministic reconciliation Runs, Findings, and resolution history
 ```
 
 The implementation persists customers and financed contracts in PostgreSQL,
@@ -36,12 +37,16 @@ descending installment position, and writes one immutable `refund_recorded`
 compensating effect without rewriting Payment history. Signed Stripe Test Mode
 `payment_intent.succeeded` events can supply that payment assertion through a
 durable, duplicate-safe ingestion boundary.
+Reconciliation v1 compares contractual state, internal financial effects,
+retained Stripe evidence, and simulated external-bank evidence using five exact
+rules and a knowledge-time cutoff. It preserves historical Runs, typed Finding
+evidence, and idempotent operator actions.
 
 ## Outside the current boundary
 
 The backend does not yet implement Stripe Refund ingestion, automatic provider
-refunds, chargebacks, bank ingestion, reconciliation, analytics, dashboards,
+refunds, chargebacks, real bank ingestion, fuzzy or AI-assisted matching,
+automatic remediation, analytics, dashboards,
 authentication or RBAC, an AI assistant, a frontend, or public deployment. A
 Payment or Refund is an accepted and durably recorded internal financial fact;
-neither proves provider or bank settlement, revenue recognition, or
-reconciliation.
+neither proves provider or bank settlement or revenue recognition.

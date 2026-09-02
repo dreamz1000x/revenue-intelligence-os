@@ -187,8 +187,30 @@ rejects deletion and changes to evidence columns. State-consistency checks tie
 nullable fields to the current processing state: a processed event has a Payment
 link, while a failed event has no Payment link and retains an error code.
 
+## Reconciliation tables
+
+`external_source_events` retains immutable simulated `settlement_credit` and
+`refund_debit` evidence, including exact raw bytes, bounded metadata, source
+identity, monetary data, knowledge timestamps, and optional exact references to
+Payments, Refunds, or Stripe PaymentIntent identifiers. `(source,
+source_event_id)` is unique.
+
+`reconciliation_runs` stores immutable completed global Runs for one cutoff and
+the fixed `reconciliation-v1` rule set. The canonical Run fingerprint makes all
+keys for the same logical cutoff converge.
+
+`reconciliation_findings` stores the exact rule code, severity, subject,
+optional signed cent delta, lifecycle status, and deterministic fingerprint for
+each Run. `reconciliation_finding_evidence` contains typed foreign-key references
+to the retained facts that support a Finding; exactly one entity reference is
+set per row.
+
+`reconciliation_actions` is the ordered audit history for acknowledge, resolve,
+and ignore transitions. Each action records actor, reason, occurred/recorded
+times, request fingerprint, and Finding-scoped idempotency key.
+
 ## Current exclusions
 
-There are no persisted models for chargebacks, bank movements, reconciliation
-exceptions, analytics, accounting accounts, journals, postings, AI
-conversations, or frontend state. Stripe Refund evidence is not ingested.
+There are no persisted models for chargebacks, real bank integrations,
+analytics, accounting accounts, journals, postings, AI conversations, or
+frontend state. Stripe Refund evidence is not ingested.

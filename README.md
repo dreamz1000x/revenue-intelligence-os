@@ -17,6 +17,10 @@ monolith backed by PostgreSQL; it is not presented as production-ready.
 - Signed Stripe Test Mode webhook ingestion for `payment_intent.succeeded`.
 - Byte-for-byte raw webhook evidence retention and duplicate detection.
 - Database-backed processing claims, stale-lease recovery, and safe retries.
+- Deterministic Reconciliation v1 Runs across contractual, internal-effect,
+  Stripe-provider, and simulated external-bank evidence.
+- Typed Findings with immutable evidence references and an ordered,
+  idempotent operator-resolution history.
 - Automated unit, integration, migration, and HTTP-flow tests.
 
 ## Current architecture
@@ -51,8 +55,9 @@ reopen an Installment and a later Payment can repay it. See
 
 A Payment means that the application accepted and durably recorded an assertion
 that money was received for one Contract. It does **not** prove Stripe settlement,
-bank settlement, revenue recognition, accounts-receivable accounting, or
-reconciliation. See [financial invariants](docs/financial-invariants.md) and
+bank settlement, revenue recognition, or accounts-receivable accounting.
+Reconciliation compares retained evidence; it does not turn a Payment into
+settlement proof. See [financial invariants](docs/financial-invariants.md) and
 [ledger semantics](docs/ledger-semantics.md).
 
 ## Stripe webhook support
@@ -144,9 +149,18 @@ With the example `HOST` and `PORT`, the service listens on
 | `POST` | `/refunds` | Record and allocate a refund against one Payment. |
 | `GET` | `/refunds/:id` | Retrieve a refund and its allocations. |
 | `POST` | `/webhooks/stripe` | Receive a signed Stripe webhook. |
+| `POST` | `/external-source-events` | Record or replay simulated external evidence. |
+| `GET` | `/external-source-events/:id` | Retrieve retained external evidence. |
+| `POST` | `/reconciliation/runs` | Execute or replay a global v1 Run at a cutoff. |
+| `GET` | `/reconciliation/runs` | List Runs. |
+| `GET` | `/reconciliation/runs/:id` | Retrieve one Run. |
+| `GET` | `/reconciliation/findings` | List Findings using exact filters. |
+| `GET` | `/reconciliation/findings/:id` | Retrieve typed evidence and action history. |
+| `POST` | `/reconciliation/findings/:id/actions` | Acknowledge, resolve, or ignore a Finding. |
 
 Customer, contract, payment, and refund creation require an `Idempotency-Key`
 header. The Stripe endpoint requires exactly one `Stripe-Signature` header.
+Reconciliation Run creation and Finding actions also require `Idempotency-Key`.
 
 `POST /refunds` accepts `paymentId`, positive integer `amountCents`, and an
 offset-aware `refundedAt` instant. It returns `201` when created and `200` when
@@ -173,18 +187,20 @@ Docker-compatible runtime must be available.
 - [Ledger semantics](docs/ledger-semantics.md)
 - [Refund semantics](docs/refund-semantics.md)
 - [Stripe webhook semantics](docs/stripe-webhook-semantics.md)
+- [Reconciliation semantics](docs/reconciliation-semantics.md)
 - [Modular monolith ADR](docs/adr/0001-modular-monolith.md)
 - [Immutable financial-effect ledger ADR](docs/adr/0002-immutable-financial-effect-ledger.md)
 
 ## Current limitations
 
-The current backend does not implement chargebacks, reconciliation, bank
-ingestion, analytics, a dashboard, authentication or RBAC, an AI assistant, a
+The current backend does not implement chargebacks, real bank ingestion,
+analytics, a dashboard, authentication or RBAC, an AI assistant, a
 frontend, or a public deployment. Stripe support is deliberately limited to
 signed Test Mode `payment_intent.succeeded` ingestion: it does not ingest Stripe
 Refund events, initiate provider refunds, create PaymentIntents, or call Stripe
 APIs. Recorded Payments and Refunds do not prove provider or bank settlement,
-revenue recognition, or reconciliation.
+revenue recognition, or automatic remediation. Reconciliation v1 performs exact,
+deterministic comparison only; it has no fuzzy matching or AI decision-making.
 
 ## License
 
