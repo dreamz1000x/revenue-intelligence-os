@@ -21,6 +21,8 @@ monolith backed by PostgreSQL; it is not presented as production-ready.
   Stripe-provider, and simulated external-bank evidence.
 - Typed Findings with immutable evidence references and an ordered,
   idempotent operator-resolution history.
+- Versioned operational analytics with explicit period and knowledge-time
+  semantics, plus a guarded reproducible demo dataset.
 - Automated unit, integration, migration, and HTTP-flow tests.
 
 ## Current architecture
@@ -157,6 +159,9 @@ With the example `HOST` and `PORT`, the service listens on
 | `GET` | `/reconciliation/findings` | List Findings using exact filters. |
 | `GET` | `/reconciliation/findings/:id` | Retrieve typed evidence and action history. |
 | `POST` | `/reconciliation/findings/:id/actions` | Acknowledge, resolve, or ignore a Finding. |
+| `GET` | `/analytics/financial-summary` | Retrieve versioned financial and exposure metrics. |
+| `GET` | `/analytics/contracts/:id/timeline` | Retrieve one deterministic Contract timeline. |
+| `GET` | `/analytics/reconciliation-summary` | Retrieve counts for an explicit reconciliation Run. |
 
 Customer, contract, payment, and refund creation require an `Idempotency-Key`
 header. The Stripe endpoint requires exactly one `Stripe-Signature` header.
@@ -188,19 +193,22 @@ Docker-compatible runtime must be available.
 - [Refund semantics](docs/refund-semantics.md)
 - [Stripe webhook semantics](docs/stripe-webhook-semantics.md)
 - [Reconciliation semantics](docs/reconciliation-semantics.md)
+- [Analytics semantics](docs/analytics-semantics.md)
 - [Modular monolith ADR](docs/adr/0001-modular-monolith.md)
 - [Immutable financial-effect ledger ADR](docs/adr/0002-immutable-financial-effect-ledger.md)
 
 ## Current limitations
 
 The current backend does not implement chargebacks, real bank ingestion,
-analytics, a dashboard, authentication or RBAC, an AI assistant, a
+a dashboard, authentication or RBAC, an AI assistant, a
 frontend, or a public deployment. Stripe support is deliberately limited to
 signed Test Mode `payment_intent.succeeded` ingestion: it does not ingest Stripe
 Refund events, initiate provider refunds, create PaymentIntents, or call Stripe
 APIs. Recorded Payments and Refunds do not prove provider or bank settlement,
 revenue recognition, or automatic remediation. Reconciliation v1 performs exact,
 deterministic comparison only; it has no fuzzy matching or AI decision-making.
+Analytics v1 does not claim MRR, churn, LTV, recognized revenue, accounting cash
+balance, or production readiness.
 
 ## License
 

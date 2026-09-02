@@ -81,6 +81,14 @@ Finding evidence, and records idempotent operator actions. It compares four
 evidence domains: contractual state, internal financial effects, Stripe provider
 evidence, and simulated external-bank movements. Matching is exact only.
 
+### Analytics
+
+The `analytics` boundary contains versioned PostgreSQL query services and thin
+HTTP serializers for a financial summary, Contract timeline, and explicit-Run
+reconciliation summary. It reads existing facts directly and persists no
+analytical projections. Period metrics use event time constrained by knowledge
+time; exposure is a point-in-time read model.
+
 ## Request and event flows
 
 ### Customer creation
@@ -246,7 +254,7 @@ The project does not use `drizzle-kit push`.
 
 The current architecture does not implement Stripe Refund ingestion, automatic
 provider refunds, chargebacks, real bank ingestion, fuzzy matching, AI
-remediation, analytics,
+remediation, predictive analytics, accounting analytics,
 authentication or RBAC, an AI assistant, a frontend, Redis, queues, workers,
 microservices, or public deployment. Stripe ingestion does not create
 PaymentIntents or prove provider or bank settlement.

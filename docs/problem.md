@@ -46,7 +46,7 @@ evidence, and idempotent operator actions.
 
 The backend does not yet implement Stripe Refund ingestion, automatic provider
 refunds, chargebacks, real bank ingestion, fuzzy or AI-assisted matching,
-automatic remediation, analytics, dashboards,
+automatic remediation, predictive or accounting analytics, dashboards,
 authentication or RBAC, an AI assistant, a frontend, or public deployment. A
 Payment or Refund is an accepted and durably recorded internal financial fact;
 neither proves provider or bank settlement or revenue recognition.

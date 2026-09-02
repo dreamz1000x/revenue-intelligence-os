@@ -23,6 +23,8 @@ import { actOnReconciliationFindingUseCase } from "./reconciliation/application/
 import { PostgresExternalSourceEventPersistence } from "./reconciliation/persistence/postgres-external-source-event-persistence.js";
 import { PostgresReconciliationPersistence } from "./reconciliation/persistence/postgres-reconciliation-persistence.js";
 import { PostgresReconciliationActionPersistence } from "./reconciliation/persistence/postgres-reconciliation-action-persistence.js";
+import { getContractFinancialTimelineV1, getFinancialSummaryV1, getReconciliationSummaryV1 } from "./analytics/application/analytics-queries.js";
+import { PostgresAnalyticsQueries } from "./analytics/persistence/postgres-analytics-queries.js";
 
 const databaseUrl = process.env["DATABASE_URL"];
 if (databaseUrl === undefined) {
@@ -44,6 +46,7 @@ const stripeWebhookEventPersistence =
 const externalSourceEventPersistence = new PostgresExternalSourceEventPersistence(database);
 const reconciliationPersistence = new PostgresReconciliationPersistence(database);
 const reconciliationActionPersistence = new PostgresReconciliationActionPersistence(database);
+const analyticsQueries = new PostgresAnalyticsQueries(database);
 const recordPayment = recordPaymentUseCase({ clock, persistence: paymentPersistence });
 const app = buildApp({
   createCustomer: createCustomerUseCase({ clock, persistence: customerPersistence }),
@@ -66,6 +69,9 @@ const app = buildApp({
   runReconciliation: runReconciliationUseCase({ clock, persistence: reconciliationPersistence }),
   reconciliationPersistence,
   actOnReconciliationFinding: actOnReconciliationFindingUseCase({ clock, persistence: reconciliationActionPersistence }),
+  getFinancialSummaryV1: getFinancialSummaryV1(analyticsQueries),
+  getContractFinancialTimelineV1: getContractFinancialTimelineV1(analyticsQueries),
+  getReconciliationSummaryV1: getReconciliationSummaryV1(analyticsQueries),
 });
 
 app.addHook("onClose", async () => database.close());

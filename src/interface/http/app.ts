@@ -23,6 +23,8 @@ import { registerRefundRoutes } from "./refunds-routes.js";
 import type { StripeSignatureVerifier } from "./stripe-signature-verifier.js";
 import { registerStripeWebhookRoutes } from "./stripe-webhook-routes.js";
 import { registerReconciliationRoutes } from "./reconciliation-routes.js";
+import type { getFinancialSummaryV1, getContractFinancialTimelineV1, getReconciliationSummaryV1 } from "../../analytics/application/analytics-queries.js";
+import { registerAnalyticsRoutes } from "./analytics-routes.js";
 
 export interface HttpUseCases {
   readonly createCustomer: ReturnType<typeof createCustomerUseCase>;
@@ -41,6 +43,9 @@ export interface HttpUseCases {
   readonly runReconciliation?: ReturnType<typeof runReconciliationUseCase>;
   readonly reconciliationPersistence?: ReconciliationPersistence;
   readonly actOnReconciliationFinding?: ReturnType<typeof actOnReconciliationFindingUseCase>;
+  readonly getFinancialSummaryV1?: ReturnType<typeof getFinancialSummaryV1>;
+  readonly getContractFinancialTimelineV1?: ReturnType<typeof getContractFinancialTimelineV1>;
+  readonly getReconciliationSummaryV1?: ReturnType<typeof getReconciliationSummaryV1>;
 }
 
 export function buildApp(dependencies: HttpUseCases): FastifyInstance {
@@ -55,6 +60,7 @@ export function buildApp(dependencies: HttpUseCases): FastifyInstance {
   if (dependencies.recordExternalSourceEvent && dependencies.getExternalSourceEventById && dependencies.runReconciliation && dependencies.reconciliationPersistence && dependencies.actOnReconciliationFinding) {
     registerReconciliationRoutes(app, dependencies as Required<HttpUseCases>);
   }
+  if (dependencies.getFinancialSummaryV1 && dependencies.getContractFinancialTimelineV1 && dependencies.getReconciliationSummaryV1) registerAnalyticsRoutes(app, dependencies as Required<HttpUseCases>);
 
   return app;
 }

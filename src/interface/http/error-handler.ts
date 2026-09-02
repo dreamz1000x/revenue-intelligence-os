@@ -11,6 +11,7 @@ import { RefundExceedsReversibleAmountError } from "../../refunds/domain/refund-
 import { StripeEventEvidenceConflict } from "../../stripe/application/stripe-webhook-event-persistence.js";
 import { ExternalEventEvidenceConflict, ExternalPaymentReferenceNotFoundError, ExternalRefundReferenceNotFoundError } from "../../reconciliation/application/external-source-event-persistence.js";
 import { IllegalReconciliationTransition, ReconciliationFindingNotFoundError } from "../../reconciliation/application/reconciliation-action-persistence.js";
+import { AnalyticsContractNotFoundError, AnalyticsRunNotFoundError } from "../../analytics/application/analytics-queries.js";
 
 export class PublicHttpError extends Error {
   override readonly name = "PublicHttpError";
@@ -115,6 +116,8 @@ export function registerPublicErrorHandler(app: FastifyInstance): void {
     if (error instanceof ExternalRefundReferenceNotFoundError) return sendPublicError(reply, 404, "EXTERNAL_REFUND_REFERENCE_NOT_FOUND", "Referenced Refund not found");
     if (error instanceof ReconciliationFindingNotFoundError) return sendPublicError(reply, 404, "RECONCILIATION_FINDING_NOT_FOUND", "Reconciliation Finding not found");
     if (error instanceof IllegalReconciliationTransition) return sendPublicError(reply, 409, "ILLEGAL_RECONCILIATION_TRANSITION", "Reconciliation Finding transition is not allowed");
+    if (error instanceof AnalyticsContractNotFoundError) return sendPublicError(reply, 404, "ANALYTICS_CONTRACT_NOT_FOUND", "Contract not found");
+    if (error instanceof AnalyticsRunNotFoundError) return sendPublicError(reply, 404, "ANALYTICS_RUN_NOT_FOUND", "Reconciliation Run not found");
 
     if (error instanceof CustomerNotFoundError) {
       return sendPublicError(
