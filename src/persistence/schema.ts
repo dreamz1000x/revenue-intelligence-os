@@ -14,3 +14,10 @@ export {
   refunds,
 } from "../refunds/persistence/refund-schema.js";
 export { stripeWebhookEvents } from "../stripe/persistence/stripe-webhook-event-schema.js";
+export {
+  externalSourceEvents,
+  reconciliationActions,
+  reconciliationFindingEvidence,
+  reconciliationFindings,
+  reconciliationRuns,
+} from "../reconciliation/persistence/reconciliation-schema.js";

@@ -6,12 +6,17 @@ export const CREATE_CUSTOMER_COMMAND = "create_customer" as const;
 export const CREATE_CONTRACT_COMMAND = "create_contract" as const;
 export const RECORD_PAYMENT_COMMAND = "record_payment" as const;
 export const RECORD_REFUND_COMMAND = "record_refund" as const;
+export const RUN_RECONCILIATION_COMMAND = "run_reconciliation" as const;
+export const ACT_ON_RECONCILIATION_FINDING_COMMAND =
+  "act_on_reconciliation_finding" as const;
 
 export type CommandType =
   | typeof CREATE_CUSTOMER_COMMAND
   | typeof CREATE_CONTRACT_COMMAND
   | typeof RECORD_PAYMENT_COMMAND
-  | typeof RECORD_REFUND_COMMAND;
+  | typeof RECORD_REFUND_COMMAND
+  | typeof RUN_RECONCILIATION_COMMAND
+  | typeof ACT_ON_RECONCILIATION_FINDING_COMMAND;
 
 declare const idempotencyKeyBrand: unique symbol;
 declare const requestFingerprintBrand: unique symbol;
