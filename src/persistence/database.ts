@@ -11,6 +11,7 @@ export type TransactionClient = Parameters<
 export interface Database {
   readonly client: DatabaseClient;
   transaction<T>(work: (transaction: TransactionClient) => Promise<T>): Promise<T>;
+  repeatableReadTransaction<T>(work: (transaction: TransactionClient) => Promise<T>): Promise<T>;
   close(): Promise<void>;
 }
 
@@ -22,6 +23,8 @@ export function createDatabase(config: PoolConfig): Database {
     client,
     transaction: (work) =>
       client.transaction(work, { isolationLevel: "read committed" }),
+    repeatableReadTransaction: (work) =>
+      client.transaction(work, { isolationLevel: "repeatable read" }),
     close: () => pool.end(),
   };
 }
