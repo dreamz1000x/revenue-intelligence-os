@@ -16,6 +16,13 @@ import { recordRefundUseCase } from "./refunds/application/record-refund.js";
 import { PostgresRefundPersistence } from "./refunds/persistence/postgres-refund-persistence.js";
 import { processStripeWebhookUseCase } from "./stripe/application/process-stripe-webhook.js";
 import { PostgresStripeWebhookEventPersistence } from "./stripe/persistence/postgres-stripe-webhook-event-persistence.js";
+import { recordExternalSourceEventUseCase } from "./reconciliation/application/record-external-source-event.js";
+import { getExternalSourceEventByIdUseCase } from "./reconciliation/application/get-external-source-event-by-id.js";
+import { runReconciliationUseCase } from "./reconciliation/application/run-reconciliation.js";
+import { actOnReconciliationFindingUseCase } from "./reconciliation/application/act-on-reconciliation-finding.js";
+import { PostgresExternalSourceEventPersistence } from "./reconciliation/persistence/postgres-external-source-event-persistence.js";
+import { PostgresReconciliationPersistence } from "./reconciliation/persistence/postgres-reconciliation-persistence.js";
+import { PostgresReconciliationActionPersistence } from "./reconciliation/persistence/postgres-reconciliation-action-persistence.js";
 
 const databaseUrl = process.env["DATABASE_URL"];
 if (databaseUrl === undefined) {
@@ -34,6 +41,9 @@ const paymentPersistence = new PostgresPaymentPersistence(database);
 const refundPersistence = new PostgresRefundPersistence(database);
 const stripeWebhookEventPersistence =
   new PostgresStripeWebhookEventPersistence(database);
+const externalSourceEventPersistence = new PostgresExternalSourceEventPersistence(database);
+const reconciliationPersistence = new PostgresReconciliationPersistence(database);
+const reconciliationActionPersistence = new PostgresReconciliationActionPersistence(database);
 const recordPayment = recordPaymentUseCase({ clock, persistence: paymentPersistence });
 const app = buildApp({
   createCustomer: createCustomerUseCase({ clock, persistence: customerPersistence }),
@@ -51,6 +61,11 @@ const app = buildApp({
   }),
   stripeWebhookClock: clock,
   verifyStripeSignature: createStripeSignatureVerifier(stripeWebhookSecret),
+  recordExternalSourceEvent: recordExternalSourceEventUseCase({ clock, persistence: externalSourceEventPersistence }),
+  getExternalSourceEventById: getExternalSourceEventByIdUseCase(externalSourceEventPersistence),
+  runReconciliation: runReconciliationUseCase({ clock, persistence: reconciliationPersistence }),
+  reconciliationPersistence,
+  actOnReconciliationFinding: actOnReconciliationFindingUseCase({ clock, persistence: reconciliationActionPersistence }),
 });
 
 app.addHook("onClose", async () => database.close());

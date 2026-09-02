@@ -10,6 +10,11 @@ import type { recordPaymentUseCase } from "../../payments/application/record-pay
 import type { getRefundByIdUseCase } from "../../refunds/application/get-refund-by-id.js";
 import type { recordRefundUseCase } from "../../refunds/application/record-refund.js";
 import type { processStripeWebhookUseCase } from "../../stripe/application/process-stripe-webhook.js";
+import type { recordExternalSourceEventUseCase } from "../../reconciliation/application/record-external-source-event.js";
+import type { getExternalSourceEventByIdUseCase } from "../../reconciliation/application/get-external-source-event-by-id.js";
+import type { runReconciliationUseCase } from "../../reconciliation/application/run-reconciliation.js";
+import type { actOnReconciliationFindingUseCase } from "../../reconciliation/application/act-on-reconciliation-finding.js";
+import type { ReconciliationPersistence } from "../../reconciliation/application/reconciliation-persistence.js";
 import { registerContractRoutes } from "./contracts-routes.js";
 import { registerCustomerRoutes } from "./customers-routes.js";
 import { registerPublicErrorHandler } from "./error-handler.js";
@@ -17,6 +22,7 @@ import { registerPaymentRoutes } from "./payments-routes.js";
 import { registerRefundRoutes } from "./refunds-routes.js";
 import type { StripeSignatureVerifier } from "./stripe-signature-verifier.js";
 import { registerStripeWebhookRoutes } from "./stripe-webhook-routes.js";
+import { registerReconciliationRoutes } from "./reconciliation-routes.js";
 
 export interface HttpUseCases {
   readonly createCustomer: ReturnType<typeof createCustomerUseCase>;
@@ -30,6 +36,11 @@ export interface HttpUseCases {
   readonly processStripeWebhook: ReturnType<typeof processStripeWebhookUseCase>;
   readonly stripeWebhookClock: Clock;
   readonly verifyStripeSignature: StripeSignatureVerifier;
+  readonly recordExternalSourceEvent?: ReturnType<typeof recordExternalSourceEventUseCase>;
+  readonly getExternalSourceEventById?: ReturnType<typeof getExternalSourceEventByIdUseCase>;
+  readonly runReconciliation?: ReturnType<typeof runReconciliationUseCase>;
+  readonly reconciliationPersistence?: ReconciliationPersistence;
+  readonly actOnReconciliationFinding?: ReturnType<typeof actOnReconciliationFindingUseCase>;
 }
 
 export function buildApp(dependencies: HttpUseCases): FastifyInstance {
@@ -41,6 +52,9 @@ export function buildApp(dependencies: HttpUseCases): FastifyInstance {
   registerPaymentRoutes(app, dependencies);
   registerRefundRoutes(app, dependencies);
   registerStripeWebhookRoutes(app, dependencies);
+  if (dependencies.recordExternalSourceEvent && dependencies.getExternalSourceEventById && dependencies.runReconciliation && dependencies.reconciliationPersistence && dependencies.actOnReconciliationFinding) {
+    registerReconciliationRoutes(app, dependencies as Required<HttpUseCases>);
+  }
 
   return app;
 }
