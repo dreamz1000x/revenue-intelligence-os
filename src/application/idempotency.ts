@@ -92,6 +92,23 @@ export function canonicalizeRecordRefundPayload(input: {
   ]);
 }
 
+export function canonicalizeReconciliationActionPayload(input: {
+  readonly findingId: number;
+  readonly actionType: "acknowledge" | "resolve" | "ignore";
+  readonly actorId: string;
+  readonly reason: string;
+  readonly occurredAt: Date;
+}): string {
+  return JSON.stringify([
+    input.findingId,
+    input.actionType,
+    "operator",
+    input.actorId,
+    input.reason,
+    input.occurredAt.toISOString(),
+  ]);
+}
+
 export function fingerprintCanonicalPayload(
   canonicalPayload: string,
 ): RequestFingerprint {
