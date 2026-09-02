@@ -43,6 +43,13 @@
       "when": 1787933436850,
       "tag": "0005_fast_makkari",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1788308158142,
+      "tag": "0006_purple_obadiah_stane",
+      "breakpoints": true
     }
   ]
 }

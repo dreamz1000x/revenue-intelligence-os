@@ -1,0 +1,2125 @@
+{
+  "id": "45fc8a86-708e-472d-9079-5c7dddc9effb",
+  "prevId": "1efaf4b4-8d3f-4e5b-be0d-5ab4203262d7",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.contracts": {
+      "name": "contracts",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "identity": {
+            "type": "byDefault",
+            "name": "contracts_id_seq",
+            "schema": "public",
+            "increment": "1",
+            "startWith": "1",
+            "minValue": "1",
+            "maxValue": "2147483647",
+            "cache": "1",
+            "cycle": false
+          }
+        },
+        "customer_id": {
+          "name": "customer_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "total_amount_cents": {
+          "name": "total_amount_cents",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "currency": {
+          "name": "currency",
+          "type": "varchar(3)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "installment_count": {
+          "name": "installment_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "first_due_date": {
+          "name": "first_due_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "varchar(16)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "contracts_customer_id_customers_id_fk": {
+          "name": "contracts_customer_id_customers_id_fk",
+          "tableFrom": "contracts",
+          "tableTo": "customers",
+          "columnsFrom": [
+            "customer_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "contracts_total_amount_positive": {
+          "name": "contracts_total_amount_positive",
+          "value": "\"contracts\".\"total_amount_cents\" > 0"
+        },
+        "contracts_total_amount_safe_integer": {
+          "name": "contracts_total_amount_safe_integer",
+          "value": "\"contracts\".\"total_amount_cents\" <= 9007199254740991"
+        },
+        "contracts_currency_eur": {
+          "name": "contracts_currency_eur",
+          "value": "\"contracts\".\"currency\" = 'EUR'"
+        },
+        "contracts_installment_count_positive": {
+          "name": "contracts_installment_count_positive",
+          "value": "\"contracts\".\"installment_count\" > 0"
+        },
+        "contracts_installment_count_within_total": {
+          "name": "contracts_installment_count_within_total",
+          "value": "\"contracts\".\"installment_count\" <= \"contracts\".\"total_amount_cents\""
+        },
+        "contracts_status_active": {
+          "name": "contracts_status_active",
+          "value": "\"contracts\".\"status\" = 'active'"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.customers": {
+      "name": "customers",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "identity": {
+            "type": "byDefault",
+            "name": "customers_id_seq",
+            "schema": "public",
+            "increment": "1",
+            "startWith": "1",
+            "minValue": "1",
+            "maxValue": "2147483647",
+            "cache": "1",
+            "cycle": false
+          }
+        },
+        "display_name": {
+          "name": "display_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "customers_display_name_not_blank": {
+          "name": "customers_display_name_not_blank",
+          "value": "length(btrim(\"customers\".\"display_name\")) > 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.external_source_events": {
+      "name": "external_source_events",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "identity": {
+            "type": "byDefault",
+            "name": "external_source_events_id_seq",
+            "schema": "public",
+            "increment": "1",
+            "startWith": "1",
+            "minValue": "1",
+            "maxValue": "2147483647",
+            "cache": "1",
+            "cycle": false
+          }
+        },
+        "source": {
+          "name": "source",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "source_event_id": {
+          "name": "source_event_id",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "event_type": {
+          "name": "event_type",
+          "type": "varchar(32)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "amount_cents": {
+          "name": "amount_cents",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "currency": {
+          "name": "currency",
+          "type": "varchar(3)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "occurred_at": {
+          "name": "occurred_at",
+          "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "received_at": {
+          "name": "received_at",
+          "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "external_reference": {
+          "name": "external_reference",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "internal_payment_id": {
+          "name": "internal_payment_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "internal_refund_id": {
+          "name": "internal_refund_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "provider_payment_reference": {
+          "name": "provider_payment_reference",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "raw_payload": {
+          "name": "raw_payload",
+          "type": "bytea",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "metadata": {
+          "name": "metadata",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "external_source_events_created_at_idx": {
+          "name": "external_source_events_created_at_idx",
+          "columns": [
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "external_source_events_internal_payment_id_idx": {
+          "name": "external_source_events_internal_payment_id_idx",
+          "columns": [
+            {
+              "expression": "internal_payment_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "external_source_events_internal_refund_id_idx": {
+          "name": "external_source_events_internal_refund_id_idx",
+          "columns": [
+            {
+              "expression": "internal_refund_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "external_source_events_provider_payment_reference_idx": {
+          "name": "external_source_events_provider_payment_reference_idx",
+          "columns": [
+            {
+              "expression": "provider_payment_reference",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "external_source_events_payment_id_payments_id_fk": {
+          "name": "external_source_events_payment_id_payments_id_fk",
+          "tableFrom": "external_source_events",
+          "tableTo": "payments",
+          "columnsFrom": [
+            "internal_payment_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "external_source_events_refund_id_refunds_id_fk": {
+          "name": "external_source_events_refund_id_refunds_id_fk",
+          "tableFrom": "external_source_events",
+          "tableTo": "refunds",
+          "columnsFrom": [
+            "internal_refund_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "external_source_events_source_event_id_unique": {
+          "name": "external_source_events_source_event_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "source",
+            "source_event_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "external_source_events_type_allowed": {
+          "name": "external_source_events_type_allowed",
+          "value": "\"external_source_events\".\"event_type\" in ('settlement_credit', 'refund_debit')"
+        },
+        "external_source_events_amount_positive": {
+          "name": "external_source_events_amount_positive",
+          "value": "\"external_source_events\".\"amount_cents\" > 0"
+        },
+        "external_source_events_amount_safe_integer": {
+          "name": "external_source_events_amount_safe_integer",
+          "value": "\"external_source_events\".\"amount_cents\" <= 9007199254740991"
+        },
+        "external_source_events_currency_eur": {
+          "name": "external_source_events_currency_eur",
+          "value": "\"external_source_events\".\"currency\" = 'EUR'"
+        },
+        "external_source_events_source_nonblank": {
+          "name": "external_source_events_source_nonblank",
+          "value": "btrim(\"external_source_events\".\"source\") <> ''"
+        },
+        "external_source_events_source_event_id_nonblank": {
+          "name": "external_source_events_source_event_id_nonblank",
+          "value": "btrim(\"external_source_events\".\"source_event_id\") <> ''"
+        },
+        "external_source_events_external_reference_nonblank": {
+          "name": "external_source_events_external_reference_nonblank",
+          "value": "btrim(\"external_source_events\".\"external_reference\") <> ''"
+        },
+        "external_source_events_provider_reference_nonblank": {
+          "name": "external_source_events_provider_reference_nonblank",
+          "value": "\"external_source_events\".\"provider_payment_reference\" is null or btrim(\"external_source_events\".\"provider_payment_reference\") <> ''"
+        },
+        "external_source_events_raw_payload_size": {
+          "name": "external_source_events_raw_payload_size",
+          "value": "octet_length(\"external_source_events\".\"raw_payload\") between 1 and 1048576"
+        },
+        "external_source_events_metadata_object": {
+          "name": "external_source_events_metadata_object",
+          "value": "jsonb_typeof(\"external_source_events\".\"metadata\") = 'object'"
+        },
+        "external_source_events_metadata_size": {
+          "name": "external_source_events_metadata_size",
+          "value": "octet_length(\"external_source_events\".\"metadata\"::text) <= 16384"
+        },
+        "external_source_events_reference_consistency": {
+          "name": "external_source_events_reference_consistency",
+          "value": "(\n      (\"external_source_events\".\"event_type\" = 'settlement_credit' and \"external_source_events\".\"internal_refund_id\" is null)\n      or (\"external_source_events\".\"event_type\" = 'refund_debit' and \"external_source_events\".\"internal_payment_id\" is null and \"external_source_events\".\"provider_payment_reference\" is null)\n    )"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.idempotency_records": {
+      "name": "idempotency_records",
+      "schema": "",
+      "columns": {
+        "command_type": {
+          "name": "command_type",
+          "type": "varchar(32)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "idempotency_key": {
+          "name": "idempotency_key",
+          "type": "varchar(128)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "request_fingerprint": {
+          "name": "request_fingerprint",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "resource_id": {
+          "name": "resource_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "idempotency_records_command_type_idempotency_key_pk": {
+          "name": "idempotency_records_command_type_idempotency_key_pk",
+          "columns": [
+            "command_type",
+            "idempotency_key"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "idempotency_records_command_type_allowed": {
+          "name": "idempotency_records_command_type_allowed",
+          "value": "\"idempotency_records\".\"command_type\" in ('create_customer', 'create_contract', 'record_payment', 'record_refund', 'run_reconciliation', 'act_on_reconciliation_finding')"
+        },
+        "idempotency_records_key_format": {
+          "name": "idempotency_records_key_format",
+          "value": "\"idempotency_records\".\"idempotency_key\" ~ '^[!-~]{1,128}$'"
+        },
+        "idempotency_records_fingerprint_format": {
+          "name": "idempotency_records_fingerprint_format",
+          "value": "\"idempotency_records\".\"request_fingerprint\" ~ '^[0-9a-f]{64}$'"
+        },
+        "idempotency_records_resource_id_positive": {
+          "name": "idempotency_records_resource_id_positive",
+          "value": "\"idempotency_records\".\"resource_id\" > 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.installments": {
+      "name": "installments",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "identity": {
+            "type": "byDefault",
+            "name": "installments_id_seq",
+            "schema": "public",
+            "increment": "1",
+            "startWith": "1",
+            "minValue": "1",
+            "maxValue": "2147483647",
+            "cache": "1",
+            "cycle": false
+          }
+        },
+        "contract_id": {
+          "name": "contract_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "position": {
+          "name": "position",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "amount_cents": {
+          "name": "amount_cents",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "due_date": {
+          "name": "due_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "varchar(16)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "installments_contract_id_contracts_id_fk": {
+          "name": "installments_contract_id_contracts_id_fk",
+          "tableFrom": "installments",
+          "tableTo": "contracts",
+          "columnsFrom": [
+            "contract_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "installments_contract_id_position_unique": {
+          "name": "installments_contract_id_position_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "contract_id",
+            "position"
+          ]
+        },
+        "installments_id_contract_id_unique": {
+          "name": "installments_id_contract_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "id",
+            "contract_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "installments_position_positive": {
+          "name": "installments_position_positive",
+          "value": "\"installments\".\"position\" > 0"
+        },
+        "installments_amount_positive": {
+          "name": "installments_amount_positive",
+          "value": "\"installments\".\"amount_cents\" > 0"
+        },
+        "installments_amount_safe_integer": {
+          "name": "installments_amount_safe_integer",
+          "value": "\"installments\".\"amount_cents\" <= 9007199254740991"
+        },
+        "installments_status_allowed": {
+          "name": "installments_status_allowed",
+          "value": "\"installments\".\"status\" in ('pending', 'partially_paid', 'paid')"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.ledger_entries": {
+      "name": "ledger_entries",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "identity": {
+            "type": "byDefault",
+            "name": "ledger_entries_id_seq",
+            "schema": "public",
+            "increment": "1",
+            "startWith": "1",
+            "minValue": "1",
+            "maxValue": "2147483647",
+            "cache": "1",
+            "cycle": false
+          }
+        },
+        "payment_id": {
+          "name": "payment_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "refund_id": {
+          "name": "refund_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "effect_type": {
+          "name": "effect_type",
+          "type": "varchar(32)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "amount_cents": {
+          "name": "amount_cents",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "currency": {
+          "name": "currency",
+          "type": "varchar(3)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "event_at": {
+          "name": "event_at",
+          "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "recorded_at": {
+          "name": "recorded_at",
+          "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "ledger_entries_payment_id_payments_id_fk": {
+          "name": "ledger_entries_payment_id_payments_id_fk",
+          "tableFrom": "ledger_entries",
+          "tableTo": "payments",
+          "columnsFrom": [
+            "payment_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "ledger_entries_refund_id_refunds_id_fk": {
+          "name": "ledger_entries_refund_id_refunds_id_fk",
+          "tableFrom": "ledger_entries",
+          "tableTo": "refunds",
+          "columnsFrom": [
+            "refund_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "ledger_entries_payment_id_unique": {
+          "name": "ledger_entries_payment_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "payment_id"
+          ]
+        },
+        "ledger_entries_refund_id_unique": {
+          "name": "ledger_entries_refund_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "refund_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "ledger_entries_effect_type_allowed": {
+          "name": "ledger_entries_effect_type_allowed",
+          "value": "\"ledger_entries\".\"effect_type\" in ('payment_recorded', 'refund_recorded')"
+        },
+        "ledger_entries_source_effect_consistent": {
+          "name": "ledger_entries_source_effect_consistent",
+          "value": "(\n        (\"ledger_entries\".\"effect_type\" = 'payment_recorded' and \"ledger_entries\".\"payment_id\" is not null and \"ledger_entries\".\"refund_id\" is null)\n        or (\"ledger_entries\".\"effect_type\" = 'refund_recorded' and \"ledger_entries\".\"payment_id\" is null and \"ledger_entries\".\"refund_id\" is not null)\n      )"
+        },
+        "ledger_entries_amount_positive": {
+          "name": "ledger_entries_amount_positive",
+          "value": "\"ledger_entries\".\"amount_cents\" > 0"
+        },
+        "ledger_entries_amount_safe_integer": {
+          "name": "ledger_entries_amount_safe_integer",
+          "value": "\"ledger_entries\".\"amount_cents\" <= 9007199254740991"
+        },
+        "ledger_entries_currency_eur": {
+          "name": "ledger_entries_currency_eur",
+          "value": "\"ledger_entries\".\"currency\" = 'EUR'"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.payment_allocations": {
+      "name": "payment_allocations",
+      "schema": "",
+      "columns": {
+        "payment_id": {
+          "name": "payment_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "installment_id": {
+          "name": "installment_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "contract_id": {
+          "name": "contract_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "amount_cents": {
+          "name": "amount_cents",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "payment_allocations_payment_contract_fk": {
+          "name": "payment_allocations_payment_contract_fk",
+          "tableFrom": "payment_allocations",
+          "tableTo": "payments",
+          "columnsFrom": [
+            "payment_id",
+            "contract_id"
+          ],
+          "columnsTo": [
+            "id",
+            "contract_id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "payment_allocations_installment_contract_fk": {
+          "name": "payment_allocations_installment_contract_fk",
+          "tableFrom": "payment_allocations",
+          "tableTo": "installments",
+          "columnsFrom": [
+            "installment_id",
+            "contract_id"
+          ],
+          "columnsTo": [
+            "id",
+            "contract_id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "payment_allocations_payment_id_installment_id_pk": {
+          "name": "payment_allocations_payment_id_installment_id_pk",
+          "columns": [
+            "payment_id",
+            "installment_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "payment_allocations_amount_positive": {
+          "name": "payment_allocations_amount_positive",
+          "value": "\"payment_allocations\".\"amount_cents\" > 0"
+        },
+        "payment_allocations_amount_safe_integer": {
+          "name": "payment_allocations_amount_safe_integer",
+          "value": "\"payment_allocations\".\"amount_cents\" <= 9007199254740991"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.payments": {
+      "name": "payments",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "identity": {
+            "type": "byDefault",
+            "name": "payments_id_seq",
+            "schema": "public",
+            "increment": "1",
+            "startWith": "1",
+            "minValue": "1",
+            "maxValue": "2147483647",
+            "cache": "1",
+            "cycle": false
+          }
+        },
+        "contract_id": {
+          "name": "contract_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "amount_cents": {
+          "name": "amount_cents",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "received_at": {
+          "name": "received_at",
+          "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "payments_contract_id_contracts_id_fk": {
+          "name": "payments_contract_id_contracts_id_fk",
+          "tableFrom": "payments",
+          "tableTo": "contracts",
+          "columnsFrom": [
+            "contract_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "payments_id_contract_id_unique": {
+          "name": "payments_id_contract_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "id",
+            "contract_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "payments_amount_positive": {
+          "name": "payments_amount_positive",
+          "value": "\"payments\".\"amount_cents\" > 0"
+        },
+        "payments_amount_safe_integer": {
+          "name": "payments_amount_safe_integer",
+          "value": "\"payments\".\"amount_cents\" <= 9007199254740991"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.reconciliation_actions": {
+      "name": "reconciliation_actions",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "identity": {
+            "type": "byDefault",
+            "name": "reconciliation_actions_id_seq",
+            "schema": "public",
+            "increment": "1",
+            "startWith": "1",
+            "minValue": "1",
+            "maxValue": "2147483647",
+            "cache": "1",
+            "cycle": false
+          }
+        },
+        "finding_id": {
+          "name": "finding_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "action_type": {
+          "name": "action_type",
+          "type": "varchar(16)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "from_status": {
+          "name": "from_status",
+          "type": "varchar(16)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "to_status": {
+          "name": "to_status",
+          "type": "varchar(16)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "actor_type": {
+          "name": "actor_type",
+          "type": "varchar(16)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "actor_id": {
+          "name": "actor_id",
+          "type": "varchar(128)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "reason": {
+          "name": "reason",
+          "type": "varchar(1000)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "idempotency_key": {
+          "name": "idempotency_key",
+          "type": "varchar(128)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "request_fingerprint": {
+          "name": "request_fingerprint",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "occurred_at": {
+          "name": "occurred_at",
+          "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "recorded_at": {
+          "name": "recorded_at",
+          "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "reconciliation_actions_finding_occurred_idx": {
+          "name": "reconciliation_actions_finding_occurred_idx",
+          "columns": [
+            {
+              "expression": "finding_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "occurred_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "reconciliation_actions_finding_id_findings_id_fk": {
+          "name": "reconciliation_actions_finding_id_findings_id_fk",
+          "tableFrom": "reconciliation_actions",
+          "tableTo": "reconciliation_findings",
+          "columnsFrom": [
+            "finding_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "reconciliation_actions_finding_idempotency_unique": {
+          "name": "reconciliation_actions_finding_idempotency_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "finding_id",
+            "idempotency_key"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "reconciliation_actions_transition_allowed": {
+          "name": "reconciliation_actions_transition_allowed",
+          "value": "(\n      (\"reconciliation_actions\".\"action_type\" = 'acknowledge' and \"reconciliation_actions\".\"from_status\" = 'open' and \"reconciliation_actions\".\"to_status\" = 'acknowledged')\n      or (\"reconciliation_actions\".\"action_type\" = 'resolve' and \"reconciliation_actions\".\"from_status\" in ('open', 'acknowledged') and \"reconciliation_actions\".\"to_status\" = 'resolved')\n      or (\"reconciliation_actions\".\"action_type\" = 'ignore' and \"reconciliation_actions\".\"from_status\" in ('open', 'acknowledged') and \"reconciliation_actions\".\"to_status\" = 'ignored')\n    )"
+        },
+        "reconciliation_actions_actor_operator": {
+          "name": "reconciliation_actions_actor_operator",
+          "value": "\"reconciliation_actions\".\"actor_type\" = 'operator'"
+        },
+        "reconciliation_actions_actor_id_nonblank": {
+          "name": "reconciliation_actions_actor_id_nonblank",
+          "value": "btrim(\"reconciliation_actions\".\"actor_id\") <> ''"
+        },
+        "reconciliation_actions_reason_nonblank": {
+          "name": "reconciliation_actions_reason_nonblank",
+          "value": "btrim(\"reconciliation_actions\".\"reason\") <> ''"
+        },
+        "reconciliation_actions_idempotency_key_format": {
+          "name": "reconciliation_actions_idempotency_key_format",
+          "value": "\"reconciliation_actions\".\"idempotency_key\" ~ '^[!-~]{1,128}$'"
+        },
+        "reconciliation_actions_fingerprint_format": {
+          "name": "reconciliation_actions_fingerprint_format",
+          "value": "\"reconciliation_actions\".\"request_fingerprint\" ~ '^[0-9a-f]{64}$'"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.reconciliation_finding_evidence": {
+      "name": "reconciliation_finding_evidence",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "identity": {
+            "type": "byDefault",
+            "name": "reconciliation_finding_evidence_id_seq",
+            "schema": "public",
+            "increment": "1",
+            "startWith": "1",
+            "minValue": "1",
+            "maxValue": "2147483647",
+            "cache": "1",
+            "cycle": false
+          }
+        },
+        "finding_id": {
+          "name": "finding_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "role": {
+          "name": "role",
+          "type": "varchar(32)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "contract_id": {
+          "name": "contract_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "installment_id": {
+          "name": "installment_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "payment_id": {
+          "name": "payment_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "refund_id": {
+          "name": "refund_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ledger_entry_id": {
+          "name": "ledger_entry_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "stripe_webhook_event_id": {
+          "name": "stripe_webhook_event_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "external_source_event_id": {
+          "name": "external_source_event_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "reconciliation_evidence_finding_contract_unique": {
+          "name": "reconciliation_evidence_finding_contract_unique",
+          "columns": [
+            {
+              "expression": "finding_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "contract_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"reconciliation_finding_evidence\".\"contract_id\" is not null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "reconciliation_evidence_finding_installment_unique": {
+          "name": "reconciliation_evidence_finding_installment_unique",
+          "columns": [
+            {
+              "expression": "finding_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "installment_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"reconciliation_finding_evidence\".\"installment_id\" is not null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "reconciliation_evidence_finding_payment_unique": {
+          "name": "reconciliation_evidence_finding_payment_unique",
+          "columns": [
+            {
+              "expression": "finding_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "payment_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"reconciliation_finding_evidence\".\"payment_id\" is not null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "reconciliation_evidence_finding_refund_unique": {
+          "name": "reconciliation_evidence_finding_refund_unique",
+          "columns": [
+            {
+              "expression": "finding_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "refund_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"reconciliation_finding_evidence\".\"refund_id\" is not null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "reconciliation_evidence_finding_ledger_unique": {
+          "name": "reconciliation_evidence_finding_ledger_unique",
+          "columns": [
+            {
+              "expression": "finding_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "ledger_entry_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"reconciliation_finding_evidence\".\"ledger_entry_id\" is not null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "reconciliation_evidence_finding_stripe_unique": {
+          "name": "reconciliation_evidence_finding_stripe_unique",
+          "columns": [
+            {
+              "expression": "finding_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "stripe_webhook_event_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"reconciliation_finding_evidence\".\"stripe_webhook_event_id\" is not null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "reconciliation_evidence_finding_external_unique": {
+          "name": "reconciliation_evidence_finding_external_unique",
+          "columns": [
+            {
+              "expression": "finding_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "external_source_event_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"reconciliation_finding_evidence\".\"external_source_event_id\" is not null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "reconciliation_evidence_finding_id_findings_id_fk": {
+          "name": "reconciliation_evidence_finding_id_findings_id_fk",
+          "tableFrom": "reconciliation_finding_evidence",
+          "tableTo": "reconciliation_findings",
+          "columnsFrom": [
+            "finding_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "reconciliation_evidence_contract_id_contracts_id_fk": {
+          "name": "reconciliation_evidence_contract_id_contracts_id_fk",
+          "tableFrom": "reconciliation_finding_evidence",
+          "tableTo": "contracts",
+          "columnsFrom": [
+            "contract_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "reconciliation_evidence_installment_id_installments_id_fk": {
+          "name": "reconciliation_evidence_installment_id_installments_id_fk",
+          "tableFrom": "reconciliation_finding_evidence",
+          "tableTo": "installments",
+          "columnsFrom": [
+            "installment_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "reconciliation_evidence_payment_id_payments_id_fk": {
+          "name": "reconciliation_evidence_payment_id_payments_id_fk",
+          "tableFrom": "reconciliation_finding_evidence",
+          "tableTo": "payments",
+          "columnsFrom": [
+            "payment_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "reconciliation_evidence_refund_id_refunds_id_fk": {
+          "name": "reconciliation_evidence_refund_id_refunds_id_fk",
+          "tableFrom": "reconciliation_finding_evidence",
+          "tableTo": "refunds",
+          "columnsFrom": [
+            "refund_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "reconciliation_evidence_ledger_id_ledger_entries_id_fk": {
+          "name": "reconciliation_evidence_ledger_id_ledger_entries_id_fk",
+          "tableFrom": "reconciliation_finding_evidence",
+          "tableTo": "ledger_entries",
+          "columnsFrom": [
+            "ledger_entry_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "reconciliation_evidence_stripe_id_stripe_events_id_fk": {
+          "name": "reconciliation_evidence_stripe_id_stripe_events_id_fk",
+          "tableFrom": "reconciliation_finding_evidence",
+          "tableTo": "stripe_webhook_events",
+          "columnsFrom": [
+            "stripe_webhook_event_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "reconciliation_evidence_external_id_external_events_id_fk": {
+          "name": "reconciliation_evidence_external_id_external_events_id_fk",
+          "tableFrom": "reconciliation_finding_evidence",
+          "tableTo": "external_source_events",
+          "columnsFrom": [
+            "external_source_event_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "reconciliation_evidence_role_allowed": {
+          "name": "reconciliation_evidence_role_allowed",
+          "value": "\"reconciliation_finding_evidence\".\"role\" in ('subject', 'internal_fact', 'internal_effect', 'provider_evidence', 'external_evidence', 'contract_context')"
+        },
+        "reconciliation_evidence_exactly_one_reference": {
+          "name": "reconciliation_evidence_exactly_one_reference",
+          "value": "num_nonnulls(\"reconciliation_finding_evidence\".\"contract_id\", \"reconciliation_finding_evidence\".\"installment_id\", \"reconciliation_finding_evidence\".\"payment_id\", \"reconciliation_finding_evidence\".\"refund_id\", \"reconciliation_finding_evidence\".\"ledger_entry_id\", \"reconciliation_finding_evidence\".\"stripe_webhook_event_id\", \"reconciliation_finding_evidence\".\"external_source_event_id\") = 1"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.reconciliation_findings": {
+      "name": "reconciliation_findings",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "identity": {
+            "type": "byDefault",
+            "name": "reconciliation_findings_id_seq",
+            "schema": "public",
+            "increment": "1",
+            "startWith": "1",
+            "minValue": "1",
+            "maxValue": "2147483647",
+            "cache": "1",
+            "cycle": false
+          }
+        },
+        "run_id": {
+          "name": "run_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "rule_code": {
+          "name": "rule_code",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "rule_version": {
+          "name": "rule_version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "severity": {
+          "name": "severity",
+          "type": "varchar(16)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "subject_type": {
+          "name": "subject_type",
+          "type": "varchar(32)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "subject_id": {
+          "name": "subject_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "amount_delta_cents": {
+          "name": "amount_delta_cents",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "currency": {
+          "name": "currency",
+          "type": "varchar(3)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "varchar(16)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "fingerprint": {
+          "name": "fingerprint",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status_updated_at": {
+          "name": "status_updated_at",
+          "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "reconciliation_findings_run_severity_rule_idx": {
+          "name": "reconciliation_findings_run_severity_rule_idx",
+          "columns": [
+            {
+              "expression": "run_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "severity",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "rule_code",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "reconciliation_findings_status_severity_idx": {
+          "name": "reconciliation_findings_status_severity_idx",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "severity",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "reconciliation_findings_subject_idx": {
+          "name": "reconciliation_findings_subject_idx",
+          "columns": [
+            {
+              "expression": "subject_type",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "subject_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "reconciliation_findings_run_id_runs_id_fk": {
+          "name": "reconciliation_findings_run_id_runs_id_fk",
+          "tableFrom": "reconciliation_findings",
+          "tableTo": "reconciliation_runs",
+          "columnsFrom": [
+            "run_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "reconciliation_findings_run_fingerprint_unique": {
+          "name": "reconciliation_findings_run_fingerprint_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "run_id",
+            "fingerprint"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "reconciliation_findings_rule_allowed": {
+          "name": "reconciliation_findings_rule_allowed",
+          "value": "\"reconciliation_findings\".\"rule_code\" in ('STRIPE_SUCCESS_MISSING_INTERNAL_PAYMENT', 'INTERNAL_PAYMENT_MISSING_BANK_SETTLEMENT', 'BANK_SETTLEMENT_AMOUNT_MISMATCH', 'INTERNAL_REFUND_MISSING_BANK_OUTFLOW', 'ORPHAN_BANK_MOVEMENT')"
+        },
+        "reconciliation_findings_rule_version_one": {
+          "name": "reconciliation_findings_rule_version_one",
+          "value": "\"reconciliation_findings\".\"rule_version\" = 1"
+        },
+        "reconciliation_findings_severity_allowed": {
+          "name": "reconciliation_findings_severity_allowed",
+          "value": "\"reconciliation_findings\".\"severity\" in ('warning', 'critical')"
+        },
+        "reconciliation_findings_subject_allowed": {
+          "name": "reconciliation_findings_subject_allowed",
+          "value": "\"reconciliation_findings\".\"subject_type\" in ('payment', 'refund', 'stripe_webhook_event', 'external_source_event')"
+        },
+        "reconciliation_findings_rule_semantics": {
+          "name": "reconciliation_findings_rule_semantics",
+          "value": "(\n      (\"reconciliation_findings\".\"rule_code\" = 'STRIPE_SUCCESS_MISSING_INTERNAL_PAYMENT' and \"reconciliation_findings\".\"severity\" = 'critical' and \"reconciliation_findings\".\"subject_type\" = 'stripe_webhook_event')\n      or (\"reconciliation_findings\".\"rule_code\" = 'INTERNAL_PAYMENT_MISSING_BANK_SETTLEMENT' and \"reconciliation_findings\".\"severity\" = 'warning' and \"reconciliation_findings\".\"subject_type\" = 'payment')\n      or (\"reconciliation_findings\".\"rule_code\" = 'BANK_SETTLEMENT_AMOUNT_MISMATCH' and \"reconciliation_findings\".\"severity\" = 'critical' and \"reconciliation_findings\".\"subject_type\" = 'payment')\n      or (\"reconciliation_findings\".\"rule_code\" = 'INTERNAL_REFUND_MISSING_BANK_OUTFLOW' and \"reconciliation_findings\".\"severity\" = 'warning' and \"reconciliation_findings\".\"subject_type\" = 'refund')\n      or (\"reconciliation_findings\".\"rule_code\" = 'ORPHAN_BANK_MOVEMENT' and \"reconciliation_findings\".\"severity\" = 'warning' and \"reconciliation_findings\".\"subject_type\" = 'external_source_event')\n    )"
+        },
+        "reconciliation_findings_subject_id_positive": {
+          "name": "reconciliation_findings_subject_id_positive",
+          "value": "\"reconciliation_findings\".\"subject_id\" > 0"
+        },
+        "reconciliation_findings_delta_safe_integer": {
+          "name": "reconciliation_findings_delta_safe_integer",
+          "value": "\"reconciliation_findings\".\"amount_delta_cents\" is null or \"reconciliation_findings\".\"amount_delta_cents\" between -9007199254740991 and 9007199254740991"
+        },
+        "reconciliation_findings_currency_eur": {
+          "name": "reconciliation_findings_currency_eur",
+          "value": "\"reconciliation_findings\".\"currency\" = 'EUR'"
+        },
+        "reconciliation_findings_status_allowed": {
+          "name": "reconciliation_findings_status_allowed",
+          "value": "\"reconciliation_findings\".\"status\" in ('open', 'acknowledged', 'resolved', 'ignored')"
+        },
+        "reconciliation_findings_fingerprint_format": {
+          "name": "reconciliation_findings_fingerprint_format",
+          "value": "\"reconciliation_findings\".\"fingerprint\" ~ '^[0-9a-f]{64}$'"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.reconciliation_runs": {
+      "name": "reconciliation_runs",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "identity": {
+            "type": "byDefault",
+            "name": "reconciliation_runs_id_seq",
+            "schema": "public",
+            "increment": "1",
+            "startWith": "1",
+            "minValue": "1",
+            "maxValue": "2147483647",
+            "cache": "1",
+            "cycle": false
+          }
+        },
+        "scope_type": {
+          "name": "scope_type",
+          "type": "varchar(16)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "scope_id": {
+          "name": "scope_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "cutoff": {
+          "name": "cutoff",
+          "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "rule_set_version": {
+          "name": "rule_set_version",
+          "type": "varchar(32)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "run_fingerprint": {
+          "name": "run_fingerprint",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "varchar(16)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "executed_at": {
+          "name": "executed_at",
+          "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "reconciliation_runs_cutoff_idx": {
+          "name": "reconciliation_runs_cutoff_idx",
+          "columns": [
+            {
+              "expression": "cutoff",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "reconciliation_runs_fingerprint_unique": {
+          "name": "reconciliation_runs_fingerprint_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "run_fingerprint"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "reconciliation_runs_global_scope": {
+          "name": "reconciliation_runs_global_scope",
+          "value": "\"reconciliation_runs\".\"scope_type\" = 'global' and \"reconciliation_runs\".\"scope_id\" is null"
+        },
+        "reconciliation_runs_rule_set_v1": {
+          "name": "reconciliation_runs_rule_set_v1",
+          "value": "\"reconciliation_runs\".\"rule_set_version\" = 'reconciliation-v1'"
+        },
+        "reconciliation_runs_status_completed": {
+          "name": "reconciliation_runs_status_completed",
+          "value": "\"reconciliation_runs\".\"status\" = 'completed'"
+        },
+        "reconciliation_runs_fingerprint_format": {
+          "name": "reconciliation_runs_fingerprint_format",
+          "value": "\"reconciliation_runs\".\"run_fingerprint\" ~ '^[0-9a-f]{64}$'"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.refund_allocations": {
+      "name": "refund_allocations",
+      "schema": "",
+      "columns": {
+        "refund_id": {
+          "name": "refund_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "payment_id": {
+          "name": "payment_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "installment_id": {
+          "name": "installment_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "amount_cents": {
+          "name": "amount_cents",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "refund_allocations_refund_payment_fk": {
+          "name": "refund_allocations_refund_payment_fk",
+          "tableFrom": "refund_allocations",
+          "tableTo": "refunds",
+          "columnsFrom": [
+            "refund_id",
+            "payment_id"
+          ],
+          "columnsTo": [
+            "id",
+            "payment_id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "refund_allocations_payment_installment_fk": {
+          "name": "refund_allocations_payment_installment_fk",
+          "tableFrom": "refund_allocations",
+          "tableTo": "payment_allocations",
+          "columnsFrom": [
+            "payment_id",
+            "installment_id"
+          ],
+          "columnsTo": [
+            "payment_id",
+            "installment_id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "refund_allocations_refund_id_installment_id_pk": {
+          "name": "refund_allocations_refund_id_installment_id_pk",
+          "columns": [
+            "refund_id",
+            "installment_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "refund_allocations_amount_positive": {
+          "name": "refund_allocations_amount_positive",
+          "value": "\"refund_allocations\".\"amount_cents\" > 0"
+        },
+        "refund_allocations_amount_safe_integer": {
+          "name": "refund_allocations_amount_safe_integer",
+          "value": "\"refund_allocations\".\"amount_cents\" <= 9007199254740991"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.refunds": {
+      "name": "refunds",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "identity": {
+            "type": "byDefault",
+            "name": "refunds_id_seq",
+            "schema": "public",
+            "increment": "1",
+            "startWith": "1",
+            "minValue": "1",
+            "maxValue": "2147483647",
+            "cache": "1",
+            "cycle": false
+          }
+        },
+        "payment_id": {
+          "name": "payment_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "amount_cents": {
+          "name": "amount_cents",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "refunded_at": {
+          "name": "refunded_at",
+          "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "refunds_payment_id_payments_id_fk": {
+          "name": "refunds_payment_id_payments_id_fk",
+          "tableFrom": "refunds",
+          "tableTo": "payments",
+          "columnsFrom": [
+            "payment_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "refunds_id_payment_id_unique": {
+          "name": "refunds_id_payment_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "id",
+            "payment_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "refunds_amount_positive": {
+          "name": "refunds_amount_positive",
+          "value": "\"refunds\".\"amount_cents\" > 0"
+        },
+        "refunds_amount_safe_integer": {
+          "name": "refunds_amount_safe_integer",
+          "value": "\"refunds\".\"amount_cents\" <= 9007199254740991"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.stripe_webhook_events": {
+      "name": "stripe_webhook_events",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "identity": {
+            "type": "byDefault",
+            "name": "stripe_webhook_events_id_seq",
+            "schema": "public",
+            "increment": "1",
+            "startWith": "1",
+            "minValue": "1",
+            "maxValue": "2147483647",
+            "cache": "1",
+            "cycle": false
+          }
+        },
+        "stripe_event_id": {
+          "name": "stripe_event_id",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "event_type": {
+          "name": "event_type",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "stripe_payment_intent_id": {
+          "name": "stripe_payment_intent_id",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "raw_payload": {
+          "name": "raw_payload",
+          "type": "bytea",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "received_at": {
+          "name": "received_at",
+          "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "varchar(16)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "processing_token": {
+          "name": "processing_token",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "processing_started_at": {
+          "name": "processing_started_at",
+          "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "processed_at": {
+          "name": "processed_at",
+          "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "payment_id": {
+          "name": "payment_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "last_error_code": {
+          "name": "last_error_code",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "stripe_webhook_events_payment_id_payments_id_fk": {
+          "name": "stripe_webhook_events_payment_id_payments_id_fk",
+          "tableFrom": "stripe_webhook_events",
+          "tableTo": "payments",
+          "columnsFrom": [
+            "payment_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "stripe_webhook_events_stripe_event_id_unique": {
+          "name": "stripe_webhook_events_stripe_event_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "stripe_event_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "stripe_webhook_events_event_id_format": {
+          "name": "stripe_webhook_events_event_id_format",
+          "value": "\"stripe_webhook_events\".\"stripe_event_id\" ~ '^evt_[A-Za-z0-9]+$'"
+        },
+        "stripe_webhook_events_event_type_supported": {
+          "name": "stripe_webhook_events_event_type_supported",
+          "value": "\"stripe_webhook_events\".\"event_type\" = 'payment_intent.succeeded'"
+        },
+        "stripe_webhook_events_payment_intent_id_format": {
+          "name": "stripe_webhook_events_payment_intent_id_format",
+          "value": "\"stripe_webhook_events\".\"stripe_payment_intent_id\" is null or \"stripe_webhook_events\".\"stripe_payment_intent_id\" ~ '^pi_[A-Za-z0-9]+$'"
+        },
+        "stripe_webhook_events_raw_payload_size": {
+          "name": "stripe_webhook_events_raw_payload_size",
+          "value": "octet_length(\"stripe_webhook_events\".\"raw_payload\") between 1 and 1048576"
+        },
+        "stripe_webhook_events_status_supported": {
+          "name": "stripe_webhook_events_status_supported",
+          "value": "\"stripe_webhook_events\".\"status\" in ('received', 'processing', 'processed', 'failed')"
+        },
+        "stripe_webhook_events_state_consistency": {
+          "name": "stripe_webhook_events_state_consistency",
+          "value": "(\n        (\"stripe_webhook_events\".\"status\" = 'received' and \"stripe_webhook_events\".\"processing_token\" is null and \"stripe_webhook_events\".\"processing_started_at\" is null and \"stripe_webhook_events\".\"payment_id\" is null and \"stripe_webhook_events\".\"processed_at\" is null and \"stripe_webhook_events\".\"last_error_code\" is null)\n        or (\"stripe_webhook_events\".\"status\" = 'processing' and \"stripe_webhook_events\".\"processing_token\" is not null and \"stripe_webhook_events\".\"processing_started_at\" is not null and \"stripe_webhook_events\".\"payment_id\" is null and \"stripe_webhook_events\".\"processed_at\" is null and \"stripe_webhook_events\".\"last_error_code\" is null)\n        or (\"stripe_webhook_events\".\"status\" = 'processed' and \"stripe_webhook_events\".\"processing_token\" is null and \"stripe_webhook_events\".\"processing_started_at\" is null and \"stripe_webhook_events\".\"payment_id\" is not null and \"stripe_webhook_events\".\"processed_at\" is not null and \"stripe_webhook_events\".\"last_error_code\" is null and \"stripe_webhook_events\".\"stripe_payment_intent_id\" is not null)\n        or (\"stripe_webhook_events\".\"status\" = 'failed' and \"stripe_webhook_events\".\"processing_token\" is null and \"stripe_webhook_events\".\"processing_started_at\" is null and \"stripe_webhook_events\".\"payment_id\" is null and \"stripe_webhook_events\".\"processed_at\" is not null and \"stripe_webhook_events\".\"last_error_code\" is not null)\n      )"
+        }
+      },
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {},
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

@@ -36,7 +36,7 @@ describe.sequential("Ledger migration", () => {
 
   it("backfills one exact immutable LedgerEntry per historical Payment", async () => {
     const migrations = readMigrationFiles({ migrationsFolder: "./drizzle" });
-    expect(migrations).toHaveLength(6);
+    expect(migrations).toHaveLength(7);
 
     for (const migration of migrations.slice(0, 3)) {
       await applyMigration(migration);
@@ -88,6 +88,7 @@ describe.sequential("Ledger migration", () => {
 
     await applyMigration(migrations[4]!);
     await applyMigration(migrations[5]!);
+    await applyMigration(migrations[6]!);
 
     const historicalLedgerAfterRefundMigration = await database.client.execute(sql`
       select id, payment_id, effect_type, amount_cents::text, currency,

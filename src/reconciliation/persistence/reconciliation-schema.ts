@@ -59,7 +59,7 @@ export const externalSourceEvents = pgTable(
     check("external_source_events_metadata_size", sql`octet_length(${table.metadata}::text) <= 16384`),
     check("external_source_events_reference_consistency", sql`(
       (${table.eventType} = 'settlement_credit' and ${table.internalRefundId} is null)
-      or (${table.eventType} = 'refund_debit' and ${table.internalPaymentId} is null and ${table.internalRefundId} is not null and ${table.providerPaymentReference} is null)
+      or (${table.eventType} = 'refund_debit' and ${table.internalPaymentId} is null and ${table.providerPaymentReference} is null)
     )`),
     index("external_source_events_created_at_idx").on(table.createdAt),
     index("external_source_events_internal_payment_id_idx").on(table.internalPaymentId),
