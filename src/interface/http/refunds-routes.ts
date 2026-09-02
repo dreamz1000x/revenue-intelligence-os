@@ -5,6 +5,10 @@ import type { Refund } from "../../refunds/domain/refund.js";
 import type { HttpUseCases } from "./app.js";
 import { PublicHttpError } from "./error-handler.js";
 import { requireIdempotencyKey } from "./request-validation.js";
+import {
+  OPERATOR_AUTH_POLICY,
+  VIEWER_AUTH_POLICY,
+} from "./security/auth-policies.js";
 
 const recordRefundBodySchema = z.strictObject({
   paymentId: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
@@ -34,27 +38,49 @@ export function registerRefundRoutes(
   app: FastifyInstance,
   dependencies: Pick<HttpUseCases, "recordRefund" | "getRefundById">,
 ): void {
-  app.post("/refunds", async (request, reply) => {
-    const idempotencyKey = requireIdempotencyKey(request);
-    const body = recordRefundBodySchema.parse(request.body);
-    const result = await dependencies.recordRefund({
-      idempotencyKey,
-      paymentId: body.paymentId,
-      amountCents: body.amountCents,
-      refundedAt: new Date(body.refundedAt),
-    });
+  app.post(
+    "/refunds",
+    {
+      config: {
+        auth: OPERATOR_AUTH_POLICY,
+      },
+    },
+    async (request, reply) => {
+      const idempotencyKey = requireIdempotencyKey(request);
+      const body = recordRefundBodySchema.parse(request.body);
+      const result = await dependencies.recordRefund({
+        idempotencyKey,
+        paymentId: body.paymentId,
+        amountCents: body.amountCents,
+        refundedAt: new Date(body.refundedAt),
+      });
 
-    return reply
-      .status(result.outcome === "created" ? 201 : 200)
-      .send(serializeRefund(result.resource));
-  });
+      return reply
+        .status(result.outcome === "created" ? 201 : 200)
+        .send(serializeRefund(result.resource));
+    },
+  );
 
-  app.get("/refunds/:id", async (request, reply) => {
-    const params = refundParamsSchema.parse(request.params);
-    const refund = await dependencies.getRefundById(Number(params.id));
-    if (refund === null) {
-      throw new PublicHttpError(404, "REFUND_NOT_FOUND", "Refund not found");
-    }
-    return reply.status(200).send(serializeRefund(refund));
-  });
+  app.get(
+    "/refunds/:id",
+    {
+      config: {
+        auth: VIEWER_AUTH_POLICY,
+      },
+    },
+    async (request, reply) => {
+      const params = refundParamsSchema.parse(request.params);
+      const refund = await dependencies.getRefundById(Number(params.id));
+
+      if (refund === null) {
+        throw new PublicHttpError(
+          404,
+          "REFUND_NOT_FOUND",
+          "Refund not found",
+        );
+      }
+
+      return reply.status(200).send(serializeRefund(refund));
+    },
+  );
 }

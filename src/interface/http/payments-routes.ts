@@ -5,6 +5,10 @@ import type { Payment } from "../../payments/domain/payment.js";
 import type { HttpUseCases } from "./app.js";
 import { PublicHttpError } from "./error-handler.js";
 import { requireIdempotencyKey } from "./request-validation.js";
+import {
+  OPERATOR_AUTH_POLICY,
+  VIEWER_AUTH_POLICY,
+} from "./security/auth-policies.js";
 
 const recordPaymentBodySchema = z.strictObject({
   contractId: z.number().int(),
@@ -34,33 +38,49 @@ export function registerPaymentRoutes(
   app: FastifyInstance,
   dependencies: Pick<HttpUseCases, "recordPayment" | "getPaymentById">,
 ): void {
-  app.post("/payments", async (request, reply) => {
-    const idempotencyKey = requireIdempotencyKey(request);
-    const body = recordPaymentBodySchema.parse(request.body);
-    const result = await dependencies.recordPayment({
-      idempotencyKey,
-      contractId: body.contractId,
-      amountCents: body.amountCents,
-      receivedAt: new Date(body.receivedAt),
-    });
+  app.post(
+    "/payments",
+    {
+      config: {
+        auth: OPERATOR_AUTH_POLICY,
+      },
+    },
+    async (request, reply) => {
+      const idempotencyKey = requireIdempotencyKey(request);
+      const body = recordPaymentBodySchema.parse(request.body);
+      const result = await dependencies.recordPayment({
+        idempotencyKey,
+        contractId: body.contractId,
+        amountCents: body.amountCents,
+        receivedAt: new Date(body.receivedAt),
+      });
 
-    return reply
-      .status(result.outcome === "created" ? 201 : 200)
-      .send(serializePayment(result.resource));
-  });
+      return reply
+        .status(result.outcome === "created" ? 201 : 200)
+        .send(serializePayment(result.resource));
+    },
+  );
 
-  app.get("/payments/:id", async (request, reply) => {
-    const params = paymentParamsSchema.parse(request.params);
-    const payment = await dependencies.getPaymentById(Number(params.id));
+  app.get(
+    "/payments/:id",
+    {
+      config: {
+        auth: VIEWER_AUTH_POLICY,
+      },
+    },
+    async (request, reply) => {
+      const params = paymentParamsSchema.parse(request.params);
+      const payment = await dependencies.getPaymentById(Number(params.id));
 
-    if (payment === null) {
-      throw new PublicHttpError(
-        404,
-        "PAYMENT_NOT_FOUND",
-        "Payment not found",
-      );
-    }
+      if (payment === null) {
+        throw new PublicHttpError(
+          404,
+          "PAYMENT_NOT_FOUND",
+          "Payment not found",
+        );
+      }
 
-    return reply.status(200).send(serializePayment(payment));
-  });
+      return reply.status(200).send(serializePayment(payment));
+    },
+  );
 }

@@ -8,6 +8,7 @@ import {
 import type { HttpUseCases } from "./app.js";
 import { PublicHttpError } from "./error-handler.js";
 import { requireStripeSignature } from "./request-validation.js";
+import { PUBLIC_AUTH_POLICY } from "./security/auth-policies.js";
 import {
   StripeSignatureVerificationFailed,
   StripeVerifiedPayloadParseFailed,
@@ -30,80 +31,96 @@ export function registerStripeWebhookRoutes(
       (_request, body, done) => done(null, body),
     );
 
-    stripeScope.post("/webhooks/stripe", async (request, reply) => {
-      const signature = requireStripeSignature(request);
-      if (!Buffer.isBuffer(request.body)) {
-        throw new PublicHttpError(
-          400,
-          "INVALID_STRIPE_EVENT",
-          "Invalid Stripe event",
-        );
-      }
+    stripeScope.post(
+      "/webhooks/stripe",
+      {
+        config: {
+          auth: PUBLIC_AUTH_POLICY,
+        },
+      },
+      async (request, reply) => {
+        const signature = requireStripeSignature(request);
 
-      let verifiedEvent: unknown;
-      try {
-        verifiedEvent = dependencies.verifyStripeSignature(
-          request.body,
-          signature,
-        );
-      } catch (error) {
-        if (error instanceof StripeSignatureVerificationFailed) {
-          throw new PublicHttpError(
-            400,
-            "INVALID_STRIPE_SIGNATURE",
-            "Invalid Stripe signature",
-          );
-        }
-        if (error instanceof StripeVerifiedPayloadParseFailed) {
+        if (!Buffer.isBuffer(request.body)) {
           throw new PublicHttpError(
             400,
             "INVALID_STRIPE_EVENT",
             "Invalid Stripe event",
           );
         }
-        throw error;
-      }
 
-      let envelope;
-      try {
-        envelope = parseStripeEventEnvelope(verifiedEvent);
-      } catch (error) {
-        if (error instanceof StripeWebhookPermanentError) {
+        let verifiedEvent: unknown;
+
+        try {
+          verifiedEvent = dependencies.verifyStripeSignature(
+            request.body,
+            signature,
+          );
+        } catch (error) {
+          if (error instanceof StripeSignatureVerificationFailed) {
+            throw new PublicHttpError(
+              400,
+              "INVALID_STRIPE_SIGNATURE",
+              "Invalid Stripe signature",
+            );
+          }
+
+          if (error instanceof StripeVerifiedPayloadParseFailed) {
+            throw new PublicHttpError(
+              400,
+              "INVALID_STRIPE_EVENT",
+              "Invalid Stripe event",
+            );
+          }
+
+          throw error;
+        }
+
+        let envelope;
+
+        try {
+          envelope = parseStripeEventEnvelope(verifiedEvent);
+        } catch (error) {
+          if (error instanceof StripeWebhookPermanentError) {
+            throw new PublicHttpError(
+              400,
+              "INVALID_STRIPE_EVENT",
+              "Invalid Stripe event",
+            );
+          }
+
+          throw error;
+        }
+
+        if (envelope.livemode) {
           throw new PublicHttpError(
             400,
-            "INVALID_STRIPE_EVENT",
-            "Invalid Stripe event",
+            "LIVE_STRIPE_EVENT_NOT_ALLOWED",
+            "Live Stripe events are not allowed",
           );
         }
-        throw error;
-      }
 
-      if (envelope.livemode) {
-        throw new PublicHttpError(
-          400,
-          "LIVE_STRIPE_EVENT_NOT_ALLOWED",
-          "Live Stripe events are not allowed",
-        );
-      }
-      if (envelope.type !== STRIPE_PAYMENT_INTENT_SUCCEEDED) {
+        if (envelope.type !== STRIPE_PAYMENT_INTENT_SUCCEEDED) {
+          return reply.status(200).send({ received: true });
+        }
+
+        const result = await dependencies.processStripeWebhook({
+          verifiedEvent,
+          stripeEventId: envelope.id,
+          rawPayload: Buffer.from(request.body),
+          receivedAt: dependencies.stripeWebhookClock.now(),
+        });
+
+        if (result.outcome === "busy") {
+          throw new PublicHttpError(
+            503,
+            "STRIPE_EVENT_PROCESSING",
+            "Stripe event is already being processed",
+          );
+        }
+
         return reply.status(200).send({ received: true });
-      }
-
-      const result = await dependencies.processStripeWebhook({
-        verifiedEvent,
-        stripeEventId: envelope.id,
-        rawPayload: Buffer.from(request.body),
-        receivedAt: dependencies.stripeWebhookClock.now(),
-      });
-      if (result.outcome === "busy") {
-        throw new PublicHttpError(
-          503,
-          "STRIPE_EVENT_PROCESSING",
-          "Stripe event is already being processed",
-        );
-      }
-
-      return reply.status(200).send({ received: true });
-    });
+      },
+    );
   });
 }
