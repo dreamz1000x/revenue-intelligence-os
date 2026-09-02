@@ -5,6 +5,7 @@
   "scripts": {
     "build": "tsc",
     "db:generate": "tsc && drizzle-kit generate",
+    "demo:reset": "pnpm build && node dist/demo/reset-demo.js",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
