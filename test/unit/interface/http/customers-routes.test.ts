@@ -11,8 +11,11 @@ import {
 import { idempotencyKeyFromRawHeaders } from "../../../../src/interface/http/request-validation.js";
 import {
   authenticateTestRequests,
+  TEST_ADMIN_PRINCIPAL,
   TEST_ACCESS_TOKEN_VERIFIER,
 } from "../../../helpers/http-auth.js";
+import { auditIdempotentCommandIdentity } from "../../../../src/audit/application/audit-events.js";
+import { reconstituteAuditEvent } from "../../../../src/audit/domain/audit-event.js";
 
 const FIXED_NOW = new Date("2026-08-25T03:00:00.000Z");
 
@@ -26,7 +29,7 @@ const openApps: FastifyInstance[] = [];
 
 function testApp(
   overrides: Partial<
-    Pick<HttpUseCases, "createCustomer" | "getCustomerById">
+    Pick<HttpUseCases, "createCustomer" | "getCustomerById" | "appendAuditEvent">
   > = {},
 ): FastifyInstance {
   const app = buildApp({
@@ -78,6 +81,16 @@ function testApp(
     },
 
     accessTokenVerifier: TEST_ACCESS_TOKEN_VERIFIER,
+    appendAuditEvent:
+      overrides.appendAuditEvent ??
+      (async (input) =>
+        reconstituteAuditEvent({
+          id: 1,
+          actorType: "user",
+          recordedAt: FIXED_NOW,
+          ...input,
+          reason: input.reason ?? null,
+        })),
   });
 
   authenticateTestRequests(app);
@@ -93,6 +106,8 @@ afterEach(async () => {
 });
 
 describe("Customer HTTP interface", () => {
+  it("audits the authenticated subject and opaque logical command identity",async()=>{let audit:unknown;const response=await testApp({appendAuditEvent:async input=>{audit=input;return reconstituteAuditEvent({id:1,actorType:"user",recordedAt:FIXED_NOW,...input,reason:input.reason??null});}}).inject({method:"POST",url:"/customers",headers:{"idempotency-key":"customer-secret-key"},payload:{displayName:"Acme"}});expect(response.statusCode).toBe(201);expect(audit).toMatchObject({action:"customer.create",actorId:TEST_ADMIN_PRINCIPAL.subject,resourceType:"customer",resourceId:1,outcome:"created",deduplicationKey:auditIdempotentCommandIdentity("customer.create",TEST_ADMIN_PRINCIPAL.subject,"customer-secret-key")});expect(JSON.stringify(audit)).not.toContain("customer-secret-key");});
+  it("rejects a client-supplied audit actor before mutation",async()=>{let called=false;const response=await testApp({createCustomer:async()=>{called=true;return{resource:CUSTOMER,outcome:"created"};}}).inject({method:"POST",url:"/customers",headers:{"idempotency-key":"key"},payload:{displayName:"Acme",actorId:"spoofed"}});expect(response.statusCode).toBe(400);expect(called).toBe(false);});
   it(
     "creates a Customer with the exact header value and explicit timestamp",
     async () => {

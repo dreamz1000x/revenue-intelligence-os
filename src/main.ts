@@ -30,6 +30,8 @@ import { recordRefundUseCase } from "./refunds/application/record-refund.js";
 import { PostgresRefundPersistence } from "./refunds/persistence/postgres-refund-persistence.js";
 import { processStripeWebhookUseCase } from "./stripe/application/process-stripe-webhook.js";
 import { PostgresStripeWebhookEventPersistence } from "./stripe/persistence/postgres-stripe-webhook-event-persistence.js";
+import { appendAuditEvent, listAuditEvents } from "./audit/application/audit-events.js";
+import { PostgresAuditPersistence } from "./audit/persistence/postgres-audit-persistence.js";
 
 const databaseUrl = process.env["DATABASE_URL"];
 if (databaseUrl === undefined) {
@@ -85,6 +87,7 @@ const reconciliationActionPersistence =
   new PostgresReconciliationActionPersistence(database);
 
 const analyticsQueries = new PostgresAnalyticsQueries(database);
+const auditPersistence = new PostgresAuditPersistence(database);
 
 const recordPayment = recordPaymentUseCase({
   clock,
@@ -176,6 +179,8 @@ const app = buildApp({
 
   getReconciliationSummaryV1:
     getReconciliationSummaryV1(analyticsQueries),
+  appendAuditEvent: appendAuditEvent({clock,persistence:auditPersistence}),
+  listAuditEvents: listAuditEvents(auditPersistence),
 });
 
 app.addHook(

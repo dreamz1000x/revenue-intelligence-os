@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { IdempotencyPayloadConflict } from "../../../../src/application/idempotency.js";
+import { reconstituteAuditEvent } from "../../../../src/audit/domain/audit-event.js";
 import { createContractUseCase } from "../../../../src/contracts/application/create-contract.js";
 import { CustomerNotFoundError } from "../../../../src/contracts/application/customer-not-found-error.js";
 import { reconstituteContract } from "../../../../src/contracts/domain/contract.js";
@@ -113,6 +114,14 @@ function testApp(
     },
 
     accessTokenVerifier: TEST_ACCESS_TOKEN_VERIFIER,
+    appendAuditEvent: async (input) =>
+      reconstituteAuditEvent({
+        id: 1,
+        actorType: "user",
+        recordedAt: FIXED_NOW,
+        ...input,
+        reason: input.reason ?? null,
+      }),
   });
 
   authenticateTestRequests(app);

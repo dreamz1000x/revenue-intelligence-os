@@ -50,6 +50,13 @@
       "when": 1788308158142,
       "tag": "0006_purple_obadiah_stane",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1788399041229,
+      "tag": "0007_audit_events",
+      "breakpoints": true
     }
   ]
 }

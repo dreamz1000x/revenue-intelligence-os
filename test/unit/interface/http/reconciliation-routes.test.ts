@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { afterEach, describe, expect, it } from "vitest";
 
+import { reconstituteAuditEvent } from "../../../../src/audit/domain/audit-event.js";
 import {
   buildApp,
   type HttpUseCases,
@@ -114,6 +115,14 @@ function app(
     },
 
     accessTokenVerifier: TEST_ACCESS_TOKEN_VERIFIER,
+    appendAuditEvent: async (input) =>
+      reconstituteAuditEvent({
+        id: 1,
+        actorType: "user",
+        recordedAt: NOW,
+        ...input,
+        reason: input.reason ?? null,
+      }),
 
     recordExternalSourceEvent: async () => ({
       resource: EVENT,

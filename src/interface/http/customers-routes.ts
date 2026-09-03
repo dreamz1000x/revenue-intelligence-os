@@ -9,6 +9,7 @@ import {
   OPERATOR_AUTH_POLICY,
   VIEWER_AUTH_POLICY,
 } from "./security/auth-policies.js";
+import { auditIdempotentMutation } from "./audit-support.js";
 
 const createCustomerBodySchema = z.strictObject({
   displayName: z.string(),
@@ -28,7 +29,7 @@ function serializeCustomer(customer: Customer) {
 
 export function registerCustomerRoutes(
   app: FastifyInstance,
-  dependencies: Pick<HttpUseCases, "createCustomer" | "getCustomerById">,
+  dependencies: Pick<HttpUseCases, "createCustomer" | "getCustomerById" | "appendAuditEvent">,
 ): void {
   app.post(
     "/customers",
@@ -44,6 +45,7 @@ export function registerCustomerRoutes(
         idempotencyKey,
         displayName: body.displayName,
       });
+      await auditIdempotentMutation(dependencies,request,{action:"customer.create",resourceType:"customer",resourceId:result.resource.id,outcome:result.outcome,idempotencyKey});
 
       return reply
         .status(result.outcome === "created" ? 201 : 200)

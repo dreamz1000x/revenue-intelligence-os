@@ -9,6 +9,7 @@ import {
   OPERATOR_AUTH_POLICY,
   VIEWER_AUTH_POLICY,
 } from "./security/auth-policies.js";
+import { auditIdempotentMutation } from "./audit-support.js";
 
 const createContractBodySchema = z.strictObject({
   customerId: z.number().int(),
@@ -46,7 +47,7 @@ function serializeContract(contract: Contract) {
 
 export function registerContractRoutes(
   app: FastifyInstance,
-  dependencies: Pick<HttpUseCases, "createContract" | "getContractById">,
+  dependencies: Pick<HttpUseCases, "createContract" | "getContractById" | "appendAuditEvent">,
 ): void {
   app.post(
     "/contracts",
@@ -66,6 +67,7 @@ export function registerContractRoutes(
         installmentCount: body.installmentCount,
         firstDueDate: body.firstDueDate,
       });
+      await auditIdempotentMutation(dependencies,request,{action:"contract.create",resourceType:"contract",resourceId:result.resource.id,outcome:result.outcome,idempotencyKey});
 
       return reply
         .status(result.outcome === "created" ? 201 : 200)

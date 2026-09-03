@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { IdempotencyPayloadConflict } from "../../../../src/application/idempotency.js";
+import { reconstituteAuditEvent } from "../../../../src/audit/domain/audit-event.js";
 import { createMoneyCents } from "../../../../src/contracts/domain/money-cents.js";
 import { DomainValidationError } from "../../../../src/domain/domain-validation-error.js";
 import {
@@ -97,6 +98,14 @@ function testApp(
     },
 
     accessTokenVerifier: TEST_ACCESS_TOKEN_VERIFIER,
+    appendAuditEvent: async (input) =>
+      reconstituteAuditEvent({
+        id: 1,
+        actorType: "user",
+        recordedAt: CREATED_AT,
+        ...input,
+        reason: input.reason ?? null,
+      }),
   });
 
   authenticateTestRequests(app);

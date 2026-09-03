@@ -2,7 +2,7 @@ import { sql } from "drizzle-orm";
 import { createDatabase, type Database } from "../persistence/database.js";
 import { seedDemoDataset } from "./demo-dataset.js";
 
-const KNOWN_TABLES = "reconciliation_actions, reconciliation_finding_evidence, reconciliation_findings, reconciliation_runs, external_source_events, stripe_webhook_events, ledger_entries, refund_allocations, refunds, payment_allocations, payments, installments, contracts, idempotency_records, customers";
+const KNOWN_TABLES = "audit_events, reconciliation_actions, reconciliation_finding_evidence, reconciliation_findings, reconciliation_runs, external_source_events, stripe_webhook_events, ledger_entries, refund_allocations, refunds, payment_allocations, payments, installments, contracts, idempotency_records, customers";
 
 export interface DemoResetTarget { readonly connectionString: string; readonly displayTarget: string; }
 

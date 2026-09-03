@@ -9,6 +9,7 @@ import {
   OPERATOR_AUTH_POLICY,
   VIEWER_AUTH_POLICY,
 } from "./security/auth-policies.js";
+import { auditIdempotentMutation } from "./audit-support.js";
 
 const recordRefundBodySchema = z.strictObject({
   paymentId: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
@@ -36,7 +37,7 @@ function serializeRefund(refund: Refund) {
 
 export function registerRefundRoutes(
   app: FastifyInstance,
-  dependencies: Pick<HttpUseCases, "recordRefund" | "getRefundById">,
+  dependencies: Pick<HttpUseCases, "recordRefund" | "getRefundById" | "appendAuditEvent">,
 ): void {
   app.post(
     "/refunds",
@@ -54,6 +55,7 @@ export function registerRefundRoutes(
         amountCents: body.amountCents,
         refundedAt: new Date(body.refundedAt),
       });
+      await auditIdempotentMutation(dependencies,request,{action:"refund.record",resourceType:"refund",resourceId:result.resource.id,outcome:result.outcome,idempotencyKey});
 
       return reply
         .status(result.outcome === "created" ? 201 : 200)

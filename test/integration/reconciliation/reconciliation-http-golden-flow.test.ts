@@ -14,6 +14,7 @@ import {
   it,
 } from "vitest";
 
+import { reconstituteAuditEvent } from "../../../src/audit/domain/audit-event.js";
 import {
   buildApp,
   type HttpUseCases,
@@ -103,6 +104,15 @@ describe.sequential(
 
         accessTokenVerifier:
           TEST_ACCESS_TOKEN_VERIFIER,
+
+        appendAuditEvent: async (input) =>
+          reconstituteAuditEvent({
+            id: 1,
+            actorType: "user",
+            recordedAt: clock.now(),
+            ...input,
+            reason: input.reason ?? null,
+          }),
 
         recordExternalSourceEvent:
           recordExternalSourceEventUseCase({

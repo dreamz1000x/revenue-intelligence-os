@@ -31,6 +31,8 @@ import type { AccessTokenVerifier } from "./security/access-token-verifier.js";
 import { registerHttpAuth } from "./security/http-auth.js";
 import type { StripeSignatureVerifier } from "./stripe-signature-verifier.js";
 import { registerStripeWebhookRoutes } from "./stripe-webhook-routes.js";
+import type { appendAuditEvent, listAuditEvents } from "../../audit/application/audit-events.js";
+import { registerAuditRoutes } from "./audit-routes.js";
 
 export interface HttpUseCases {
   readonly createCustomer: ReturnType<typeof createCustomerUseCase>;
@@ -63,6 +65,8 @@ export interface HttpUseCases {
   readonly getReconciliationSummaryV1?: ReturnType<
     typeof getReconciliationSummaryV1
   >;
+  readonly appendAuditEvent?: ReturnType<typeof appendAuditEvent>;
+  readonly listAuditEvents?: ReturnType<typeof listAuditEvents>;
 }
 
 export function buildApp(dependencies: HttpUseCases): FastifyInstance {
@@ -89,6 +93,7 @@ export function buildApp(dependencies: HttpUseCases): FastifyInstance {
       dependencies as Required<HttpUseCases>,
     );
   }
+  if (dependencies.listAuditEvents) registerAuditRoutes(app, dependencies as Required<HttpUseCases>);
 
   if (
     dependencies.getFinancialSummaryV1 &&

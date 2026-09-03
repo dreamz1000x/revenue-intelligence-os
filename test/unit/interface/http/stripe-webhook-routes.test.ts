@@ -8,6 +8,7 @@ import {
   vi,
 } from "vitest";
 
+import { reconstituteAuditEvent } from "../../../../src/audit/domain/audit-event.js";
 import { reconstituteCustomer } from "../../../../src/customers/domain/customer.js";
 import {
   buildApp,
@@ -137,6 +138,15 @@ function testApp(
 
     accessTokenVerifier:
       TEST_ACCESS_TOKEN_VERIFIER,
+
+    appendAuditEvent: async (input) =>
+      reconstituteAuditEvent({
+        id: 1,
+        actorType: "user",
+        recordedAt: RECEIVED_AT,
+        ...input,
+        reason: input.reason ?? null,
+      }),
 
     ...overrides,
   };

@@ -89,6 +89,16 @@ reconciliation summary. It reads existing facts directly and persists no
 analytical projections. Period metrics use event time constrained by knowledge
 time; exposure is a point-in-time read model.
 
+### Audit trail
+
+The `audit` boundary records successful authenticated mutation commands after
+their business transaction commits. It derives actor identity from the verified
+Auth0 principal, hashes logical command identity for replay convergence, and
+persists append-only AuditEvents. It is separate from the financial ledger,
+Stripe provenance, logs, and tracing. O3 does not claim atomic business-and-audit
+persistence; audit failure is propagated and idempotent retry closes the small
+post-commit crash window.
+
 ## Request and event flows
 
 ### Customer creation

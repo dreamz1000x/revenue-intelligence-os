@@ -21,3 +21,4 @@ export {
   reconciliationFindings,
   reconciliationRuns,
 } from "../reconciliation/persistence/reconciliation-schema.js";
+export { auditEvents } from "../audit/persistence/audit-schema.js";

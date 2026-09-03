@@ -15,6 +15,7 @@ import {
 } from "vitest";
 
 import type { Clock } from "../../../src/application/clock.js";
+import { reconstituteAuditEvent } from "../../../src/audit/domain/audit-event.js";
 import { createContractUseCase } from "../../../src/contracts/application/create-contract.js";
 import { getContractByIdUseCase } from "../../../src/contracts/application/get-contract-by-id.js";
 import { PostgresContractPersistence } from "../../../src/contracts/persistence/postgres-contract-persistence.js";
@@ -135,6 +136,15 @@ describe.sequential("HTTP and PostgreSQL wiring", () => {
 
       accessTokenVerifier:
         TEST_ACCESS_TOKEN_VERIFIER,
+
+      appendAuditEvent: async (input) =>
+        reconstituteAuditEvent({
+          id: 1,
+          actorType: "user",
+          recordedAt: clock.now(),
+          ...input,
+          reason: input.reason ?? null,
+        }),
     });
 
     authenticateTestRequests(app);

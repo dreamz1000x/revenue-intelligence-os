@@ -162,6 +162,7 @@ With the example `HOST` and `PORT`, the service listens on
 | `GET` | `/analytics/financial-summary` | Retrieve versioned financial and exposure metrics. |
 | `GET` | `/analytics/contracts/:id/timeline` | Retrieve one deterministic Contract timeline. |
 | `GET` | `/analytics/reconciliation-summary` | Retrieve counts for an explicit reconciliation Run. |
+| `GET` | `/audit/events` | Admin-only filtered AuditEvent history. |
 
 Customer, contract, payment, and refund creation require an `Idempotency-Key`
 header. The Stripe endpoint requires exactly one `Stripe-Signature` header.
@@ -194,13 +195,14 @@ Docker-compatible runtime must be available.
 - [Stripe webhook semantics](docs/stripe-webhook-semantics.md)
 - [Reconciliation semantics](docs/reconciliation-semantics.md)
 - [Analytics semantics](docs/analytics-semantics.md)
+- [Audit trail semantics](docs/audit-semantics.md)
 - [Modular monolith ADR](docs/adr/0001-modular-monolith.md)
 - [Immutable financial-effect ledger ADR](docs/adr/0002-immutable-financial-effect-ledger.md)
 
 ## Current limitations
 
 The current backend does not implement chargebacks, real bank ingestion,
-a dashboard, authentication or RBAC, an AI assistant, a
+a dashboard, an AI assistant, a
 frontend, or a public deployment. Stripe support is deliberately limited to
 signed Test Mode `payment_intent.succeeded` ingestion: it does not ingest Stripe
 Refund events, initiate provider refunds, create PaymentIntents, or call Stripe

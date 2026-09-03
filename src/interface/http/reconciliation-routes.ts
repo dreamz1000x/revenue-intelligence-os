@@ -14,6 +14,7 @@ import {
   OPERATOR_AUTH_POLICY,
   VIEWER_AUTH_POLICY,
 } from "./security/auth-policies.js";
+import { auditExternalMutation, auditIdempotentMutation } from "./audit-support.js";
 
 type ReconciliationHttpDependencies = Required<
   Pick<
@@ -23,6 +24,7 @@ type ReconciliationHttpDependencies = Required<
     | "runReconciliation"
     | "reconciliationPersistence"
     | "actOnReconciliationFinding"
+    | "appendAuditEvent"
   >
 >;
 
@@ -274,6 +276,7 @@ export function registerReconciliationRoutes(
             "utf8",
           ),
         });
+      await auditExternalMutation(dependencies,request,{action:"external_source_event.record",resourceType:"external_source_event",resourceId:result.resource.id,outcome:result.outcome,source:body.source,sourceEventId:body.sourceEventId});
 
       return reply
         .status(
@@ -338,6 +341,8 @@ export function registerReconciliationRoutes(
             body.cutoff,
           ),
         });
+      const idempotencyKey=requireIdempotencyKey(request);
+      await auditIdempotentMutation(dependencies,request,{action:"reconciliation.run",resourceType:"reconciliation_run",resourceId:result.resource.id,outcome:result.outcome,idempotencyKey});
 
       return reply
         .status(
@@ -518,6 +523,8 @@ export function registerReconciliationRoutes(
             body.occurredAt,
           ),
         });
+      const idempotencyKey=requireIdempotencyKey(request);
+      await auditIdempotentMutation(dependencies,request,{action:`reconciliation.finding.${body.action}`,resourceType:"reconciliation_finding",resourceId:Number(id),outcome:result.outcome,idempotencyKey,reason:body.reason});
 
       return reply
         .status(
