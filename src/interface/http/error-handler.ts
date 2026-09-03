@@ -55,6 +55,15 @@ function isPayloadTooLargeError(error: unknown): boolean {
   );
 }
 
+function isUnsupportedMediaTypeError(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    (error as { readonly code?: unknown }).code ===
+      "FST_ERR_CTP_INVALID_MEDIA_TYPE"
+  );
+}
+
 function isStripeWebhookUrl(url: string): boolean {
   return url.split("?", 1)[0] === "/webhooks/stripe";
 }
@@ -70,15 +79,21 @@ export function registerPublicErrorHandler(app: FastifyInstance): void {
       );
     }
 
-    if (
-      isPayloadTooLargeError(error) &&
-      isStripeWebhookUrl(request.url)
-    ) {
+    if (isPayloadTooLargeError(error)) {
       return sendPublicError(
         reply,
         413,
         "PAYLOAD_TOO_LARGE",
         "Payload too large",
+      );
+    }
+
+    if (isUnsupportedMediaTypeError(error)) {
+      return sendPublicError(
+        reply,
+        415,
+        "UNSUPPORTED_MEDIA_TYPE",
+        "Unsupported media type",
       );
     }
 

@@ -326,6 +326,10 @@ export function registerReconciliationRoutes(
     {
       config: {
         auth: OPERATOR_AUTH_POLICY,
+        rateLimit: {
+          max: 10,
+          timeWindow: "1 minute",
+        },
       },
     },
     async (request, reply) => {

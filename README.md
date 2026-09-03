@@ -101,11 +101,14 @@ the running command below uses Node's `--env-file` option.
 | --- | --- | --- |
 | `DATABASE_URL` | Yes | PostgreSQL connection string. |
 | `STRIPE_WEBHOOK_SECRET` | Yes | Stripe CLI or Test Mode webhook signing secret. |
+| `AUTH0_ISSUER` | Yes | HTTPS issuer URL for the Auth0 tenant. |
+| `AUTH0_AUDIENCE` | Yes | Expected Auth0 API audience. |
+| `AUTH0_ROLES_CLAIM` | Yes | Auth0 access-token claim containing RIOS roles. |
 | `HOST` | No | Listen address; defaults to `0.0.0.0`. |
 | `PORT` | No | Listen port; defaults to `3000`. |
 
-The repository contains no live credentials. `.env.example` contains placeholders
-only.
+Secrets belong in environment configuration and must not be committed. The
+repository contains no live credentials; `.env.example` contains placeholders only.
 
 ## Database migrations
 

@@ -1,4 +1,5 @@
 import Fastify, { type FastifyInstance } from "fastify";
+import rateLimit from "@fastify/rate-limit";
 
 import type { Clock } from "../../application/clock.js";
 import type {
@@ -23,7 +24,7 @@ import type { processStripeWebhookUseCase } from "../../stripe/application/proce
 import { registerAnalyticsRoutes } from "./analytics-routes.js";
 import { registerContractRoutes } from "./contracts-routes.js";
 import { registerCustomerRoutes } from "./customers-routes.js";
-import { registerPublicErrorHandler } from "./error-handler.js";
+import { PublicHttpError, registerPublicErrorHandler } from "./error-handler.js";
 import { registerPaymentRoutes } from "./payments-routes.js";
 import { registerReconciliationRoutes } from "./reconciliation-routes.js";
 import { registerRefundRoutes } from "./refunds-routes.js";
@@ -70,41 +71,71 @@ export interface HttpUseCases {
 }
 
 export function buildApp(dependencies: HttpUseCases): FastifyInstance {
-  const app = Fastify();
+  const app = Fastify({
+    bodyLimit: 1_048_576,
+    requestTimeout: 120_000,
+    trustProxy: false,
+  });
+
+  app.addHook("onSend", async (_request, reply, payload) => {
+    reply.header("X-Content-Type-Options", "nosniff");
+    reply.header("Referrer-Policy", "no-referrer");
+    reply.header("Cache-Control", "no-store");
+    return payload;
+  });
 
   registerPublicErrorHandler(app);
   registerHttpAuth(app, dependencies.accessTokenVerifier);
+  app.register(rateLimit, {
+    global: true,
+    hook: "preHandler",
+    max: 60,
+    timeWindow: "1 minute",
+    keyGenerator: (request) => {
+      if (request.principal === null) {
+        throw new Error("Authenticated principal is required for rate limiting");
+      }
 
-  registerCustomerRoutes(app, dependencies);
-  registerContractRoutes(app, dependencies);
-  registerPaymentRoutes(app, dependencies);
-  registerRefundRoutes(app, dependencies);
-  registerStripeWebhookRoutes(app, dependencies);
+      return request.principal.subject;
+    },
+    errorResponseBuilder: () =>
+      new PublicHttpError(429, "RATE_LIMITED", "Too many requests"),
+  });
 
-  if (
-    dependencies.recordExternalSourceEvent &&
-    dependencies.getExternalSourceEventById &&
-    dependencies.runReconciliation &&
-    dependencies.reconciliationPersistence &&
-    dependencies.actOnReconciliationFinding
-  ) {
-    registerReconciliationRoutes(
-      app,
-      dependencies as Required<HttpUseCases>,
-    );
-  }
-  if (dependencies.listAuditEvents) registerAuditRoutes(app, dependencies as Required<HttpUseCases>);
+  app.after(() => {
+    registerCustomerRoutes(app, dependencies);
+    registerContractRoutes(app, dependencies);
+    registerPaymentRoutes(app, dependencies);
+    registerRefundRoutes(app, dependencies);
+    registerStripeWebhookRoutes(app, dependencies);
 
-  if (
-    dependencies.getFinancialSummaryV1 &&
-    dependencies.getContractFinancialTimelineV1 &&
-    dependencies.getReconciliationSummaryV1
-  ) {
-    registerAnalyticsRoutes(
-      app,
-      dependencies as Required<HttpUseCases>,
-    );
-  }
+    if (
+      dependencies.recordExternalSourceEvent &&
+      dependencies.getExternalSourceEventById &&
+      dependencies.runReconciliation &&
+      dependencies.reconciliationPersistence &&
+      dependencies.actOnReconciliationFinding
+    ) {
+      registerReconciliationRoutes(
+        app,
+        dependencies as Required<HttpUseCases>,
+      );
+    }
+    if (dependencies.listAuditEvents) {
+      registerAuditRoutes(app, dependencies as Required<HttpUseCases>);
+    }
+
+    if (
+      dependencies.getFinancialSummaryV1 &&
+      dependencies.getContractFinancialTimelineV1 &&
+      dependencies.getReconciliationSummaryV1
+    ) {
+      registerAnalyticsRoutes(
+        app,
+        dependencies as Required<HttpUseCases>,
+      );
+    }
+  });
 
   return app;
 }

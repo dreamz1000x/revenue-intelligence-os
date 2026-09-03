@@ -36,6 +36,7 @@ export function registerStripeWebhookRoutes(
       {
         config: {
           auth: PUBLIC_AUTH_POLICY,
+          rateLimit: false,
         },
       },
       async (request, reply) => {

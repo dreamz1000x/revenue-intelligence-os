@@ -32,37 +32,12 @@ import { processStripeWebhookUseCase } from "./stripe/application/process-stripe
 import { PostgresStripeWebhookEventPersistence } from "./stripe/persistence/postgres-stripe-webhook-event-persistence.js";
 import { appendAuditEvent, listAuditEvents } from "./audit/application/audit-events.js";
 import { PostgresAuditPersistence } from "./audit/persistence/postgres-audit-persistence.js";
+import { loadRuntimeConfig } from "./config/runtime-config.js";
 
-const databaseUrl = process.env["DATABASE_URL"];
-if (databaseUrl === undefined) {
-  throw new Error("DATABASE_URL is required");
-}
-
-const stripeWebhookSecret = process.env["STRIPE_WEBHOOK_SECRET"];
-if (
-  stripeWebhookSecret === undefined ||
-  stripeWebhookSecret.length === 0
-) {
-  throw new Error("STRIPE_WEBHOOK_SECRET is required");
-}
-
-const auth0Issuer = process.env["AUTH0_ISSUER"];
-if (auth0Issuer === undefined || auth0Issuer.length === 0) {
-  throw new Error("AUTH0_ISSUER is required");
-}
-
-const auth0Audience = process.env["AUTH0_AUDIENCE"];
-if (auth0Audience === undefined || auth0Audience.length === 0) {
-  throw new Error("AUTH0_AUDIENCE is required");
-}
-
-const auth0RolesClaim = process.env["AUTH0_ROLES_CLAIM"];
-if (auth0RolesClaim === undefined || auth0RolesClaim.length === 0) {
-  throw new Error("AUTH0_ROLES_CLAIM is required");
-}
+const config = loadRuntimeConfig(process.env);
 
 const database = createDatabase({
-  connectionString: databaseUrl,
+  connectionString: config.databaseUrl,
 });
 
 const clock: Clock = {
@@ -95,9 +70,9 @@ const recordPayment = recordPaymentUseCase({
 });
 
 const accessTokenVerifier = createAuth0AccessTokenVerifier({
-  issuer: auth0Issuer,
-  audience: auth0Audience,
-  rolesClaim: auth0RolesClaim,
+  issuer: config.auth0Issuer,
+  audience: config.auth0Audience,
+  rolesClaim: config.auth0RolesClaim,
 });
 
 const app = buildApp({
@@ -143,7 +118,7 @@ const app = buildApp({
   stripeWebhookClock: clock,
 
   verifyStripeSignature:
-    createStripeSignatureVerifier(stripeWebhookSecret),
+    createStripeSignatureVerifier(config.stripeWebhookSecret),
 
   accessTokenVerifier,
 
@@ -188,25 +163,10 @@ app.addHook(
   async () => database.close(),
 );
 
-const portText = process.env["PORT"] ?? "3000";
-const port = Number(portText);
-
-if (
-  !Number.isInteger(port) ||
-  port < 1 ||
-  port > 65_535
-) {
-  await app.close();
-
-  throw new Error(
-    "PORT must be an integer between 1 and 65535",
-  );
-}
-
 try {
   await app.listen({
-    host: process.env["HOST"] ?? "0.0.0.0",
-    port,
+    host: config.host,
+    port: config.port,
   });
 } catch (error) {
   await app.close();
