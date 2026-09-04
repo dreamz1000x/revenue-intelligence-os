@@ -102,6 +102,16 @@ export function registerStripeWebhookRoutes(
         }
 
         if (envelope.type !== STRIPE_PAYMENT_INTENT_SUCCEEDED) {
+          request.log.info(
+            {
+              event: "stripe_webhook_processed",
+              provider: "stripe",
+              providerEventId: envelope.id,
+              providerEventType: envelope.type,
+              outcome: "ignored",
+            },
+            "Stripe webhook handled",
+          );
           return reply.status(200).send({ received: true });
         }
 
@@ -113,10 +123,33 @@ export function registerStripeWebhookRoutes(
         });
 
         if (result.outcome === "busy") {
+          request.log.warn(
+            {
+              event: "stripe_webhook_processed",
+              provider: "stripe",
+              providerEventId: envelope.id,
+              providerEventType: envelope.type,
+              outcome: "busy",
+            },
+            "Stripe webhook handling deferred",
+          );
           throw new PublicHttpError(
             503,
             "STRIPE_EVENT_PROCESSING",
             "Stripe event is already being processed",
+          );
+        }
+
+        if (result.outcome === "processed") {
+          request.log.info(
+            {
+              event: "stripe_webhook_processed",
+              provider: "stripe",
+              providerEventId: envelope.id,
+              providerEventType: envelope.type,
+              outcome: "processed",
+            },
+            "Stripe webhook handled",
           );
         }
 

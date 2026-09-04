@@ -156,6 +156,8 @@ const app = buildApp({
     getReconciliationSummaryV1(analyticsQueries),
   appendAuditEvent: appendAuditEvent({clock,persistence:auditPersistence}),
   listAuditEvents: listAuditEvents(auditPersistence),
+}, {
+  logger: { level: config.logLevel },
 });
 
 app.addHook(

@@ -68,6 +68,13 @@ function isStripeWebhookUrl(url: string): boolean {
   return url.split("?", 1)[0] === "/webhooks/stripe";
 }
 
+function safeUnexpectedErrorType(error: unknown): string {
+  if (error instanceof TypeError) return "TypeError";
+  if (error instanceof RangeError) return "RangeError";
+  if (error instanceof SyntaxError) return "SyntaxError";
+  return error instanceof Error ? "Error" : "UnknownError";
+}
+
 export function registerPublicErrorHandler(app: FastifyInstance): void {
   app.setErrorHandler((error, request, reply) => {
     if (error instanceof PublicHttpError) {
@@ -185,7 +192,14 @@ export function registerPublicErrorHandler(app: FastifyInstance): void {
         "Unexpected Stripe webhook error",
       );
     } else {
-      request.log.error(error);
+      request.log.error(
+        {
+          event: "request_failed",
+          errorCode: "INTERNAL_ERROR",
+          errorType: safeUnexpectedErrorType(error),
+        },
+        "Unexpected request error",
+      );
     }
     return sendPublicError(reply, 500, "INTERNAL_ERROR", "Internal server error");
   });

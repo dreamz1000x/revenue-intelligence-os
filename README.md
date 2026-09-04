@@ -104,6 +104,7 @@ the running command below uses Node's `--env-file` option.
 | `AUTH0_ISSUER` | Yes | HTTPS issuer URL for the Auth0 tenant. |
 | `AUTH0_AUDIENCE` | Yes | Expected Auth0 API audience. |
 | `AUTH0_ROLES_CLAIM` | Yes | Auth0 access-token claim containing RIOS roles. |
+| `LOG_LEVEL` | No | Structured log level: `debug`, `info`, `warn`, or `error`; defaults to `info`. |
 | `HOST` | No | Listen address; defaults to `0.0.0.0`. |
 | `PORT` | No | Listen port; defaults to `3000`. |
 

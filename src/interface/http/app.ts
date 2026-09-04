@@ -1,4 +1,10 @@
-import Fastify, { type FastifyInstance } from "fastify";
+import { randomUUID } from "node:crypto";
+
+import Fastify, {
+  type FastifyInstance,
+  type FastifyServerOptions,
+  LogController,
+} from "fastify";
 import rateLimit from "@fastify/rate-limit";
 
 import type { Clock } from "../../application/clock.js";
@@ -70,9 +76,62 @@ export interface HttpUseCases {
   readonly listAuditEvents?: ReturnType<typeof listAuditEvents>;
 }
 
-export function buildApp(dependencies: HttpUseCases): FastifyInstance {
+export interface BuildAppOptions {
+  readonly logger?: FastifyServerOptions["logger"];
+}
+
+const sensitiveLogPaths = [
+  "req.headers.authorization",
+  "req.headers.cookie",
+  "req.headers['stripe-signature']",
+  "res.headers['set-cookie']",
+  "authorization",
+  "token",
+  "accessToken",
+  "password",
+  "secret",
+  "stripeWebhookSecret",
+  "databaseUrl",
+  "rawPayload",
+  "*.authorization",
+  "*.token",
+  "*.accessToken",
+  "*.password",
+  "*.secret",
+  "*.stripeWebhookSecret",
+  "*.databaseUrl",
+  "*.rawPayload",
+];
+
+function secureLoggerOptions(
+  logger: FastifyServerOptions["logger"],
+): NonNullable<FastifyServerOptions["logger"]> {
+  if (!logger) return false;
+
+  const configured = logger === true ? {} : logger;
+  return {
+    ...configured,
+    redact: { paths: sensitiveLogPaths, remove: true },
+    serializers: {
+      req: (request) => ({
+        method: request.method,
+        url: request.url.replace(/\?.*$/u, ""),
+      }),
+      res: (reply) => ({ statusCode: reply.statusCode }),
+    },
+  };
+}
+
+export function buildApp(
+  dependencies: HttpUseCases,
+  options: BuildAppOptions = {},
+): FastifyInstance {
   const app = Fastify({
     bodyLimit: 1_048_576,
+    genReqId: () => randomUUID(),
+    logger: secureLoggerOptions(options.logger),
+    logController: new LogController({ requestIdLogLabel: "requestId" }),
+    requestIdHeader: false,
     requestTimeout: 120_000,
     trustProxy: false,
   });

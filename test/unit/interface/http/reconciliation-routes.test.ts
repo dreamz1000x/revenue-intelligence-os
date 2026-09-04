@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { reconstituteAuditEvent } from "../../../../src/audit/domain/audit-event.js";
 import {
   buildApp,
+  type BuildAppOptions,
   type HttpUseCases,
 } from "../../../../src/interface/http/app.js";
 import { ExternalEventEvidenceConflict } from "../../../../src/reconciliation/application/external-source-event-persistence.js";
@@ -90,12 +91,13 @@ const apps: FastifyInstance[] = [];
 
 function app(
   overrides: Partial<HttpUseCases> = {},
+  logLines?: string[],
 ): FastifyInstance {
   const unexpected = async () => {
     throw new Error("Unexpected route");
   };
 
-  const built = buildApp({
+  const dependencies = {
     createCustomer: unexpected,
     getCustomerById: unexpected,
     createContract: unexpected,
@@ -160,7 +162,16 @@ function app(
     }),
 
     ...overrides,
-  } as HttpUseCases);
+  } as HttpUseCases;
+  const logger: BuildAppOptions | undefined = logLines
+    ? {
+        logger: {
+          level: "info",
+          stream: { write: (line) => logLines.push(line) },
+        },
+      }
+    : undefined;
+  const built = buildApp(dependencies, logger);
 
   authenticateTestRequests(built);
 
@@ -306,6 +317,7 @@ describe("Reconciliation HTTP interface", () => {
     "creates and converges reconciliation Runs with Idempotency-Key",
     async () => {
       let key = "";
+      const logLines: string[] = [];
 
       const created = await app({
         runReconciliation: async (value) => {
@@ -316,7 +328,7 @@ describe("Reconciliation HTTP interface", () => {
             outcome: "created",
           };
         },
-      }).inject({
+      }, logLines).inject({
         method: "POST",
         url: "/reconciliation/runs",
         headers: {
@@ -329,6 +341,19 @@ describe("Reconciliation HTTP interface", () => {
 
       expect(created.statusCode).toBe(201);
       expect(key).toBe("run-key");
+      const records = logLines.flatMap((chunk) =>
+        chunk.split("\n").filter(Boolean).map((line) => JSON.parse(line)),
+      );
+      const event = records.find(
+        (record) => record.event === "reconciliation_run_completed",
+      );
+      expect(event).toMatchObject({
+        level: 30,
+        runId: 5,
+        outcome: "created",
+      });
+      expect(event.requestId).toBe(records[0].requestId);
+      expect(logLines.join("")).not.toContain(NOW.toISOString());
 
       const replay = await app({
         runReconciliation: async () => ({

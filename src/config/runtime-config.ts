@@ -28,6 +28,7 @@ const runtimeEnvironment = z.object({
   AUTH0_ISSUER: auth0Issuer,
   AUTH0_AUDIENCE: z.string().min(1),
   AUTH0_ROLES_CLAIM: z.string().min(1),
+  LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
   HOST: z.string().min(1).default("0.0.0.0"),
   PORT: port.default(3000),
 });
@@ -38,6 +39,7 @@ export interface RuntimeConfig {
   readonly auth0Issuer: string;
   readonly auth0Audience: string;
   readonly auth0RolesClaim: string;
+  readonly logLevel: "debug" | "info" | "warn" | "error";
   readonly host: string;
   readonly port: number;
 }
@@ -64,6 +66,7 @@ export function loadRuntimeConfig(env: NodeJS.ProcessEnv): RuntimeConfig {
     auth0Issuer: result.data.AUTH0_ISSUER,
     auth0Audience: result.data.AUTH0_AUDIENCE,
     auth0RolesClaim: result.data.AUTH0_ROLES_CLAIM,
+    logLevel: result.data.LOG_LEVEL,
     host: result.data.HOST,
     port: result.data.PORT,
   };

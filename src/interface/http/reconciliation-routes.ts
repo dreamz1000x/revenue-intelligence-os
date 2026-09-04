@@ -347,6 +347,14 @@ export function registerReconciliationRoutes(
         });
       const idempotencyKey=requireIdempotencyKey(request);
       await auditIdempotentMutation(dependencies,request,{action:"reconciliation.run",resourceType:"reconciliation_run",resourceId:result.resource.id,outcome:result.outcome,idempotencyKey});
+      request.log.info(
+        {
+          event: "reconciliation_run_completed",
+          runId: result.resource.id,
+          outcome: result.outcome,
+        },
+        "Reconciliation run completed",
+      );
 
       return reply
         .status(

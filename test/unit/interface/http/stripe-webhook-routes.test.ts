@@ -12,6 +12,7 @@ import { reconstituteAuditEvent } from "../../../../src/audit/domain/audit-event
 import { reconstituteCustomer } from "../../../../src/customers/domain/customer.js";
 import {
   buildApp,
+  type BuildAppOptions,
   type HttpUseCases,
 } from "../../../../src/interface/http/app.js";
 import { stripeSignatureFromRawHeaders } from "../../../../src/interface/http/request-validation.js";
@@ -76,6 +77,7 @@ function signedRequest(rawPayload: Buffer) {
 
 function testApp(
   overrides: Partial<HttpUseCases> = {},
+  logLines?: string[],
 ) {
   const dependencies: HttpUseCases = {
     createCustomer: async () => ({
@@ -151,7 +153,15 @@ function testApp(
     ...overrides,
   };
 
-  const app = buildApp(dependencies);
+  const logger: BuildAppOptions | undefined = logLines
+    ? {
+        logger: {
+          level: "info",
+          stream: { write: (line) => logLines.push(line) },
+        },
+      }
+    : undefined;
+  const app = buildApp(dependencies, logger);
 
   openApps.push(app);
 
@@ -171,12 +181,13 @@ describe("Stripe webhook HTTP interface", () => {
   it(
     "delivers the exact signed Buffer and receipt time to the orchestrator",
     async () => {
+      const logLines: string[] = [];
       const rawPayload = Buffer.from(
         JSON.stringify(stripeEvent()),
         "utf8",
       );
 
-      const { app, dependencies } = testApp();
+      const { app, dependencies } = testApp({}, logLines);
 
       const response = await app.inject(
         signedRequest(rawPayload),
@@ -198,6 +209,25 @@ describe("Stripe webhook HTTP interface", () => {
         rawPayload,
         receivedAt: RECEIVED_AT,
       });
+
+      const records = logLines.flatMap((chunk) =>
+        chunk.split("\n").filter(Boolean).map((line) => JSON.parse(line)),
+      );
+      const event = records.find(
+        (record) => record.event === "stripe_webhook_processed",
+      );
+      expect(event).toMatchObject({
+        level: 30,
+        provider: "stripe",
+        providerEventId: "evt_http123",
+        providerEventType: "payment_intent.succeeded",
+        outcome: "processed",
+      });
+      expect(event.requestId).toBe(records[0].requestId);
+      expect(logLines.join("")).not.toContain(
+        signedRequest(rawPayload).headers["stripe-signature"],
+      );
+      expect(logLines.join("")).not.toContain(rawPayload.toString("utf8"));
     },
   );
 
@@ -403,6 +433,7 @@ describe("Stripe webhook HTTP interface", () => {
   it(
     "acknowledges a valid signed unsupported event without persistence",
     async () => {
+      const logLines: string[] = [];
       const rawPayload = Buffer.from(
         JSON.stringify(
           stripeEvent({
@@ -412,7 +443,7 @@ describe("Stripe webhook HTTP interface", () => {
         "utf8",
       );
 
-      const { app, dependencies } = testApp();
+      const { app, dependencies } = testApp({}, logLines);
 
       const response = await app.inject(
         signedRequest(rawPayload),
@@ -427,6 +458,11 @@ describe("Stripe webhook HTTP interface", () => {
       expect(
         dependencies.processStripeWebhook,
       ).not.toHaveBeenCalled();
+      expect(logLines.join("")).toContain('"outcome":"ignored"');
+      expect(logLines.join("")).toContain(
+        '"providerEventType":"customer.created"',
+      );
+      expect(logLines.join("")).not.toContain(rawPayload.toString("utf8"));
     },
   );
 

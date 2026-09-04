@@ -11,6 +11,7 @@ const validEnvironment = (): NodeJS.ProcessEnv => ({
   AUTH0_ISSUER: "https://tenant.example/",
   AUTH0_AUDIENCE: "rios-api",
   AUTH0_ROLES_CLAIM: "roles",
+  LOG_LEVEL: "debug",
   HOST: "127.0.0.1",
   PORT: "4000",
 });
@@ -36,20 +37,35 @@ describe("runtime configuration", () => {
       auth0Issuer: "https://tenant.example/",
       auth0Audience: "rios-api",
       auth0RolesClaim: "roles",
+      logLevel: "debug",
       host: "127.0.0.1",
       port: 4000,
     });
   });
 
-  it("applies HOST and PORT defaults", () => {
+  it("applies LOG_LEVEL, HOST and PORT defaults", () => {
     const env = validEnvironment();
+    delete env.LOG_LEVEL;
     delete env.HOST;
     delete env.PORT;
 
     expect(loadRuntimeConfig(env)).toMatchObject({
+      logLevel: "info",
       host: "0.0.0.0",
       port: 3000,
     });
+  });
+
+  it.each(["debug", "info", "warn", "error"])(
+    "accepts LOG_LEVEL %s",
+    (value) => {
+      expect(loadRuntimeConfig({ ...validEnvironment(), LOG_LEVEL: value }).logLevel)
+        .toBe(value);
+    },
+  );
+
+  it("rejects an unsupported LOG_LEVEL", () => {
+    expectInvalid("LOG_LEVEL", "trace");
   });
 
   it.each([
