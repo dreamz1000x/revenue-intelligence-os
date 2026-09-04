@@ -33,6 +33,10 @@ import { PostgresStripeWebhookEventPersistence } from "./stripe/persistence/post
 import { appendAuditEvent, listAuditEvents } from "./audit/application/audit-events.js";
 import { PostgresAuditPersistence } from "./audit/persistence/postgres-audit-persistence.js";
 import { loadRuntimeConfig } from "./config/runtime-config.js";
+import {
+  createGracefulShutdown,
+  registerGracefulShutdownSignals,
+} from "./runtime/graceful-shutdown.js";
 
 const config = loadRuntimeConfig(process.env);
 
@@ -166,11 +170,25 @@ app.addHook(
   async () => database.close(),
 );
 
+const shutdown = createGracefulShutdown({
+  close: () => app.close(),
+  reportFailure: () => {
+    app.log.error(
+      { event: "graceful_shutdown_failed" },
+      "Graceful shutdown failed",
+    );
+  },
+  setExitCode: (code) => {
+    process.exitCode = code;
+  },
+});
+
 try {
   await app.listen({
     host: config.host,
     port: config.port,
   });
+  registerGracefulShutdownSignals(shutdown);
 } catch (error) {
   await app.close();
   throw error;

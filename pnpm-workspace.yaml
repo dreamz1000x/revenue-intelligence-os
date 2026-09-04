@@ -1,5 +1,6 @@
 allowBuilds:
   cpu-features: false
+  esbuild@0.28.2: true
   esbuild@0.18.20: false
   esbuild@0.25.12: true
   protobufjs: false

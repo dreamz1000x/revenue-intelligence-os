@@ -4,9 +4,14 @@
 
 O6 establishes basic runtime operability primitives for RIOS: liveness,
 PostgreSQL readiness, and bounded process-local HTTP metrics. O5 owns structured
-logging and request correlation. O7 will own deployment, Railway integration,
-production probes, external monitoring, alerting, backup and recovery, and the
-operational runbook. Production deployment is not complete in O6.
+logging and request correlation. O7 defines the production deployment,
+migration, shutdown, backup, recovery, and operator contract in
+[Production deployment and recovery](deployment.md). The base Railway resources
+are provisioned, while the first deployment and recovery validation remain
+pending.
+Native IaC is intentionally deferred because `railway@3.11.0` cannot represent
+the required provider-side `preDeployTimeoutSeconds` setting; current provider
+configuration remains authoritative.
 
 ## Liveness
 
@@ -19,6 +24,8 @@ performs no dependency checks. It returns HTTP 200 with:
 ```
 
 Liveness must not fail merely because PostgreSQL is unavailable.
+
+Railway should use `/ready`, not `/health`, to gate activation of a deployment.
 
 ## Readiness
 
@@ -38,6 +45,19 @@ query-cancellation guarantees.
 PostgreSQL is the critical internal runtime dependency for core RIOS traffic.
 Auth0 provider availability is not actively probed during local token
 verification. Stripe is an inbound integration and readiness must not call it.
+
+## Startup and graceful shutdown
+
+Startup validates runtime configuration, creates dependencies, and begins
+listening without an eager PostgreSQL ping. `/ready` is the admission check for
+database-dependent traffic.
+
+Both `SIGTERM` and `SIGINT` request the same graceful shutdown. `app.close()` is
+invoked exactly once even if more than one signal arrives, and Fastify's
+`onClose` lifecycle closes the PostgreSQL pool. Successful shutdown exits
+naturally. If closing fails, only the fixed `graceful_shutdown_failed` event is
+emitted and the process exit code becomes 1; arbitrary error objects are not
+logged.
 
 ## Metrics
 
@@ -92,8 +112,10 @@ security headers apply and CORS remains absent.
 - There is no distributed aggregation or Prometheus endpoint.
 - There are no latency histograms, database-pool metrics, or business/financial
   metrics.
-- There is no external monitoring, alerting, or Railway probe configuration.
-- Backup/recovery procedures and a deployment runbook remain future O7 work.
+- There is no external monitoring or alerting.
+- Railway deployment health/readiness settings are configured but remain
+  unverified until the first deployment. Backups and recovery have a documented
+  operator contract but are not yet validated against the real project.
 
 ## Verification
 

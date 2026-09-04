@@ -4,8 +4,10 @@
   "type": "module",
   "scripts": {
     "build": "tsc",
+    "db:migrate": "node dist/persistence/migrate.js",
     "db:generate": "tsc && drizzle-kit generate",
     "demo:reset": "pnpm build && node dist/demo/reset-demo.js",
+    "start": "node dist/main.js",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },

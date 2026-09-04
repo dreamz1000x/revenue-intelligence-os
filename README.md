@@ -125,19 +125,27 @@ TypeScript schema
 
 `corepack pnpm db:generate` performs the build and migration generation steps.
 Run it only for an intentional schema change and review every generated SQL and
-snapshot diff. This repository does not use `drizzle-kit push` and currently has
-no package script that applies migrations to a database.
+snapshot diff. This repository does not use `drizzle-kit push`. After building,
+apply the reviewed, committed migrations to the configured database with:
+
+```sh
+corepack pnpm db:migrate
+```
 
 ## Running
 
-There is no `start` or `dev` package script yet. After applying the committed
-migrations to the database referenced by `.env`, build and run the existing
-entry point directly:
+After applying the committed migrations to the database referenced by `.env`,
+build and start the service:
 
 ```sh
 corepack pnpm build
 node --env-file=.env dist/main.js
 ```
+
+The Railway production Start Command is `node dist/main.js`, so the Node process
+receives termination signals directly. The package `start` script is an
+equivalent convenience command, not the Railway Start Command. Production
+configuration is injected by the platform rather than loaded from `.env`.
 
 With the example `HOST` and `PORT`, the service listens on
 `http://127.0.0.1:3000`.
@@ -200,14 +208,20 @@ Docker-compatible runtime must be available.
 - [Reconciliation semantics](docs/reconciliation-semantics.md)
 - [Analytics semantics](docs/analytics-semantics.md)
 - [Audit trail semantics](docs/audit-semantics.md)
+- [Production deployment, migration, backup, and recovery](docs/deployment.md)
+- [Operability](docs/operability.md)
 - [Modular monolith ADR](docs/adr/0001-modular-monolith.md)
 - [Immutable financial-effect ledger ADR](docs/adr/0002-immutable-financial-effect-ledger.md)
 
 ## Current limitations
 
-The current backend does not implement chargebacks, real bank ingestion,
-a dashboard, an AI assistant, a
-frontend, or a public deployment. Stripe support is deliberately limited to
+The Railway project `revenue-intelligence-os` and its `production` environment
+have been provisioned with the `api` service, private PostgreSQL service and
+volume, public API domain, and required runtime variables. The first production
+deployment and migrations have not run, deployment verification and a recovery
+drill have not been completed, and RIOS is not production-ready. The current
+backend does not implement chargebacks, real bank ingestion, a dashboard, an AI
+assistant, or a frontend. Stripe support is deliberately limited to
 signed Test Mode `payment_intent.succeeded` ingestion: it does not ingest Stripe
 Refund events, initiate provider refunds, create PaymentIntents, or call Stripe
 APIs. Recorded Payments and Refunds do not prove provider or bank settlement,
@@ -215,6 +229,11 @@ revenue recognition, or automatic remediation. Reconciliation v1 performs exact,
 deterministic comparison only; it has no fuzzy matching or AI decision-making.
 Analytics v1 does not claim MRR, churn, LTV, recognized revenue, accounting cash
 balance, or production readiness.
+
+Railway native IaC was evaluated during O7 but is intentionally deferred:
+`railway@3.11.0` cannot represent the required provider-side
+`preDeployTimeoutSeconds` setting. The current Railway provider configuration
+remains authoritative until the SDK officially supports that field.
 
 ## License
 
