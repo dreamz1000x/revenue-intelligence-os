@@ -26,6 +26,10 @@ class FixedClock implements Clock {
 }
 
 describe.sequential("Customer PostgreSQL persistence", () => {
+  it("pings the existing PostgreSQL pool", async () => {
+    await expect(database.ping()).resolves.toBeUndefined();
+  });
+
   let container: StartedPostgreSqlContainer;
   let database: Database;
   let persistence: PostgresCustomerPersistence;

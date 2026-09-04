@@ -31,6 +31,12 @@ import { registerAnalyticsRoutes } from "./analytics-routes.js";
 import { registerContractRoutes } from "./contracts-routes.js";
 import { registerCustomerRoutes } from "./customers-routes.js";
 import { PublicHttpError, registerPublicErrorHandler } from "./error-handler.js";
+import { registerHealthRoutes } from "./health-routes.js";
+import { registerMetricsRoutes } from "./metrics-routes.js";
+import {
+  createOperationalMetrics,
+  type OperationalMetrics,
+} from "./operational-metrics.js";
 import { registerPaymentRoutes } from "./payments-routes.js";
 import { registerReconciliationRoutes } from "./reconciliation-routes.js";
 import { registerRefundRoutes } from "./refunds-routes.js";
@@ -78,6 +84,8 @@ export interface HttpUseCases {
 
 export interface BuildAppOptions {
   readonly logger?: FastifyServerOptions["logger"];
+  readonly metrics?: OperationalMetrics;
+  readonly readinessCheck?: () => Promise<void>;
 }
 
 const sensitiveLogPaths = [
@@ -126,6 +134,7 @@ export function buildApp(
   dependencies: HttpUseCases,
   options: BuildAppOptions = {},
 ): FastifyInstance {
+  const metrics = options.metrics ?? createOperationalMetrics();
   const app = Fastify({
     bodyLimit: 1_048_576,
     genReqId: () => randomUUID(),
@@ -141,6 +150,9 @@ export function buildApp(
     reply.header("Referrer-Policy", "no-referrer");
     reply.header("Cache-Control", "no-store");
     return payload;
+  });
+  app.addHook("onResponse", async (_request, reply) => {
+    metrics.recordResponse(reply.statusCode);
   });
 
   registerPublicErrorHandler(app);
@@ -162,6 +174,12 @@ export function buildApp(
   });
 
   app.after(() => {
+    registerHealthRoutes(app, {
+      readinessCheck: options.readinessCheck ?? (async () => {
+        throw new Error("Readiness dependency is unavailable");
+      }),
+    });
+    registerMetricsRoutes(app, metrics);
     registerCustomerRoutes(app, dependencies);
     registerContractRoutes(app, dependencies);
     registerPaymentRoutes(app, dependencies);

@@ -158,6 +158,7 @@ const app = buildApp({
   listAuditEvents: listAuditEvents(auditPersistence),
 }, {
   logger: { level: config.logLevel },
+  readinessCheck: () => database.ping(),
 });
 
 app.addHook(
