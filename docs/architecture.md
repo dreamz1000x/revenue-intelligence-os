@@ -1,8 +1,8 @@
 # Architecture
 
 This document describes the architecture currently implemented by Revenue
-Intelligence OS. The system is an evolving backend, not a production-ready
-platform.
+Intelligence OS. The system includes a deployed backend and a bounded web
+dashboard. It does not claim contractual production readiness.
 
 ## System shape
 
@@ -28,6 +28,10 @@ A single deployable process and database remain appropriate because the current
 financial operations need strong local transaction boundaries and no implemented
 capability requires independent deployment. Module boundaries remain explicit so
 future extraction can be driven by demonstrated operational needs.
+
+The standalone `web/` package is a Next.js BFF frontend intended for Vercel. It
+keeps Auth0 access tokens server-side, consumes the existing HTTPS API, and owns
+no financial business rules or persistence. See ADR-0003.
 
 ## Current boundaries
 
@@ -241,7 +245,7 @@ internal validation failures reach the sanitized `500 INTERNAL_ERROR` response.
 ## Technology and workflow
 
 - Node.js 24.19.0 and TypeScript 7.0.2.
-- Fastify 5.11.3 for HTTP.
+- Fastify 5.12.1 for HTTP.
 - PostgreSQL 18.4 in the verified integration-test environment.
 - Drizzle ORM 0.45.2 and Drizzle Kit 0.31.4.
 - Stripe SDK 22.5.0 for webhook signature verification.
@@ -264,7 +268,7 @@ The project does not use `drizzle-kit push`.
 
 The current architecture does not implement Stripe Refund ingestion, automatic
 provider refunds, chargebacks, real bank ingestion, fuzzy matching, AI
-remediation, predictive analytics, accounting analytics,
-authentication or RBAC, an AI assistant, a frontend, Redis, queues, workers,
-microservices, or public deployment. Stripe ingestion does not create
+remediation, predictive analytics, accounting analytics, an AI assistant,
+Redis, queues, workers, microservices, or realtime transport. The frontend does
+not add broad list/CRUD APIs or client-side financial rules. Stripe ingestion does not create
 PaymentIntents or prove provider or bank settlement.

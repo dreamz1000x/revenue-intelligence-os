@@ -9,7 +9,11 @@
     "demo:reset": "pnpm build && node dist/demo/reset-demo.js",
     "start": "node dist/main.js",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "web:build": "pnpm --dir web --ignore-workspace build",
+    "web:dev": "pnpm --dir web --ignore-workspace dev",
+    "web:test": "pnpm --dir web --ignore-workspace test",
+    "web:typecheck": "pnpm --dir web --ignore-workspace typecheck"
   },
   "dependencies": {
     "@fastify/rate-limit": "11.2.0",

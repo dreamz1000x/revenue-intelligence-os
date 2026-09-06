@@ -27,8 +27,9 @@ monolith backed by PostgreSQL; it is not presented as production-ready.
 
 ## Current architecture
 
-The application is one modular monolith with one PostgreSQL database. Its main
-flow separates four responsibilities:
+The backend is one modular monolith with one PostgreSQL database. A bounded
+Next.js dashboard lives in `web/` and calls the API through a server-side Auth0
+session boundary. The backend flow separates four responsibilities:
 
 ```text
 interface → application → domain → persistence
@@ -150,6 +151,37 @@ configuration is injected by the platform rather than loaded from `.env`.
 With the example `HOST` and `PORT`, the service listens on
 `http://127.0.0.1:3000`.
 
+## Web dashboard
+
+The `web/` package provides a responsive operational interface for financial
+analytics, entity inspection, supported operator commands, reconciliation,
+health/readiness, metrics, and the admin audit trail. It uses Next.js App Router
+and a dedicated Auth0 Regular Web Application. Browser code never stores or
+receives the RIOS API bearer token; authenticated API calls originate from the
+Next.js server.
+
+Copy `web/.env.example` to ignored `web/.env.local`, configure the separate
+`RIOS Web` Auth0 application, then run:
+
+```sh
+corepack pnpm web:dev
+```
+
+The dashboard listens on `http://localhost:3001`, avoiding the API's port 3000.
+Viewer access is read-only, operator/admin identities see supported mutation
+controls, and Audit remains admin-only. These UI decisions do not replace API
+RBAC. See [frontend setup](docs/frontend.md) and
+[ADR-0003](docs/adr/0003-nextjs-bff-frontend.md).
+
+Deployment topology:
+
+```text
+Browser → Vercel Next.js → Auth0 access token → Railway Fastify API → PostgreSQL
+```
+
+The repository implementation is complete, but public frontend deployment and
+real browser authentication remain a provider smoke gate.
+
 ## API
 
 | Method | Path | Purpose |
@@ -175,6 +207,7 @@ With the example `HOST` and `PORT`, the service listens on
 | `GET` | `/analytics/contracts/:id/timeline` | Retrieve one deterministic Contract timeline. |
 | `GET` | `/analytics/reconciliation-summary` | Retrieve counts for an explicit reconciliation Run. |
 | `GET` | `/audit/events` | Admin-only filtered AuditEvent history. |
+| `GET` | `/me` | Return the verified subject and supported roles. |
 
 Customer, contract, payment, and refund creation require an `Idempotency-Key`
 header. The Stripe endpoint requires exactly one `Stripe-Signature` header.
