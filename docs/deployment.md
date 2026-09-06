@@ -5,10 +5,12 @@
 The Railway project `revenue-intelligence-os` and its `production` environment
 have been provisioned. They contain the `api` service, a private PostgreSQL
 service and its volume, a public API domain, and the required runtime variables.
-The first production deployment and production migrations have not run;
-deployment verification and a recovery drill have not been completed. This
-document remains the operator contract for that work and does not claim that
-RIOS is production-ready.
+Commit `436d93e` has been deployed and the API and PostgreSQL services are
+active. Production deployment, migrations, health/readiness, Auth0 RBAC, Stripe
+webhook ingestion, and the provider-independent recovery drill have been
+verified. Railway-native PITR and volume backups are unavailable on the current
+plan because they require Railway Pro; this is an accepted v1 provider/cost
+limitation, not a claim that RIOS is production-ready.
 
 The intended topology is deliberately small:
 
@@ -92,7 +94,9 @@ Railway pre-deploy is the sole owner of production migration execution. The API
 startup path and any future replica must not run migrations. A failed migration
 must block deployment; its provider-side pre-deploy timeout is configured to
 300 seconds. Migrations `0000` through `0007` have been verified against a blank
-PostgreSQL 18.4 database and on a no-op rerun, but have not yet run on Railway.
+PostgreSQL 18.4 database and on a no-op rerun. Railway production contains all
+eight committed migrations in `drizzle.__drizzle_migrations`; their recorded
+timestamps exactly match the committed `0000`-`0007` journal.
 
 Routine releases should keep schema changes backward-compatible. Additive
 changes are preferred. Destructive or incompatible changes require explicit
@@ -136,8 +140,8 @@ The intended release sequence is:
 6. Railway requires `/ready` to return 200 before activating the deployment.
 7. The operator verifies the deployed version and key endpoints.
 
-Once the GitHub source is connected, enable Railway's "Wait for CI" deployment
-control before the first production deployment. It is not enabled yet.
+When the GitHub source is connected, enable Railway's "Wait for CI" deployment
+control for subsequent production deployments.
 
 ### Native IaC limitation
 
@@ -151,22 +155,24 @@ claim a committed or drift-free Railway IaC configuration.
 
 ## Backup strategy
 
-Backups use three complementary layers; none is presently configured or tested.
+The verified v1 recovery layer is a provider-independent logical backup and
+separate-target restore. Railway-native recovery capabilities are documented
+below as plan limitations rather than paid portfolio requirements.
 
 ### A. Point-in-time recovery
 
-Enable Railway PostgreSQL point-in-time recovery during provisioning. Confirm
-that WAL-based recovery and the then-current rolling base-backup retention are
-active; the planning assumption is approximately four weeks, not a contractual
-RPO or RTO. A restore must create a new sibling database while leaving the
-source unchanged. Cutover is always a deliberate manual action.
+Railway PostgreSQL point-in-time recovery requires Railway Pro and is not
+available on the selected plan. This accepted v1 limitation must be reassessed
+before relying on native PITR for a production recovery objective. If enabled
+in the future, a restore must create a new sibling database while leaving the
+source unchanged; cutover remains a deliberate manual action.
 
 ### B. Volume backups
 
-Configure daily and weekly volume backups after provisioning, plus a manual
-backup before a high-risk operation. Volume backups are a second recovery path,
-not a substitute for PITR. Their exact restoration capability must be verified
-against the provisioned service before reliance.
+Railway native volume backups also require Railway Pro and are unavailable on
+the selected plan. They are not an O7 closure dependency. If adopted later,
+their schedule, retention, and restoration behavior must be verified before
+reliance.
 
 ### C. Provider-independent logical backup
 
@@ -174,6 +180,19 @@ Create periodic `pg_dump` backups in PostgreSQL custom format, stored outside
 Git and outside the Railway service. Restore them with `pg_restore` into a
 separate target database, validate the result, and only then consider cutover.
 O7 does not add backup automation or cron jobs.
+
+The O7 recovery drill created `rios-production-20260906T111040Z.dump` outside
+the repository using `pg_dump` custom format. The 76,622-byte backup completed
+from `2026-09-06T11:10:40.1658960Z` to
+`2026-09-06T11:10:42.8181760Z` (2.650 seconds) and has SHA-256
+`f86a6649cf0df4573a40a14c049a50e0a798f5300f123aeb6a794a3bfa21a86e`.
+It was restored into an isolated local PostgreSQL 18.6 Docker database from
+`2026-09-06T11:14:26.0047313Z` to
+`2026-09-06T11:14:26.4165166Z` (0.409 seconds), without modifying production.
+Validation confirmed all eight migration records and exact journal timestamps;
+Customer, Contract, Payment, allocation, and paid Installment facts from the
+production Stripe smoke test; representative financial table counts; eight
+append-only/history-protection triggers; and six critical foreign keys.
 
 No contractual RPO or RTO is claimed until real schedules, retention, alerting,
 and timed recovery drills have been measured.
@@ -269,17 +288,22 @@ existence of a backup as proof that it is restorable.
 - Apply migrations `0000`-`0007` through pre-deploy and inspect the production
   migration history.
 - Execute the operator deployment checklist above.
-- Enable and inspect PITR; configure daily/weekly volume backups.
 - Produce a logical custom-format backup outside Git and Railway.
-- Perform and time a PITR restore to a sibling database, inspect the restored
-  data, validate RIOS against it, and rehearse manual cutover/rollback.
+- Restore it to a separate non-production database, inspect the restored data,
+  and record the measured backup and restore timings.
+- Record Railway-native PITR and volume-backup availability for the selected
+  plan; do not make a paid provider capability a v1 portfolio requirement.
 - Validate this runbook against the real project and record measured recovery
   observations before declaring O7 closed.
 
 ## O7 closure criteria
 
-O7 remains open until the first build, pre-deploy migration, startup, and
-`/ready` activation are verified;
-PITR and volume backups are enabled and inspected; a recovery drill restores to
-a separate database whose contents are validated; and this operator runbook has
-been exercised against the deployed environment.
+O7 closes when the first build, pre-deploy migration, startup, and `/ready`
+activation are verified; a provider-independent backup is restored to a
+separate database and its contents are validated; provider backup limitations
+are recorded; and this operator runbook has been exercised against the deployed
+environment. The completed checks include `/health` and `/ready` returning 200,
+an Auth0 ADMIN receiving 200 and a VIEWER receiving 403 from
+`GET /audit/events`, and a signed Stripe Test Mode
+`payment_intent.succeeded` delivery producing Payment 1 for 1,000 EUR cents,
+allocated in full to Installment 1 with status `paid`.
