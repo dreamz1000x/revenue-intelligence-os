@@ -33,6 +33,7 @@ import { registerCustomerRoutes } from "./customers-routes.js";
 import { PublicHttpError, registerPublicErrorHandler } from "./error-handler.js";
 import { registerHealthRoutes } from "./health-routes.js";
 import { registerMetricsRoutes } from "./metrics-routes.js";
+import { registerMeRoutes } from "./me-routes.js";
 import {
   createOperationalMetrics,
   type OperationalMetrics,
@@ -180,6 +181,7 @@ export function buildApp(
       }),
     });
     registerMetricsRoutes(app, metrics);
+    registerMeRoutes(app);
     registerCustomerRoutes(app, dependencies);
     registerContractRoutes(app, dependencies);
     registerPaymentRoutes(app, dependencies);
