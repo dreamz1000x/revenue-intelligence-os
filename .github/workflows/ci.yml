@@ -41,3 +41,23 @@ jobs:
 
       - name: Test
         run: pnpm test
+
+      - name: Install frontend dependencies
+        run: pnpm --dir web install --ignore-workspace --frozen-lockfile
+
+      - name: Typecheck frontend
+        run: pnpm --dir web --ignore-workspace typecheck
+
+      - name: Test frontend
+        run: pnpm --dir web --ignore-workspace test
+
+      - name: Build frontend
+        run: pnpm --dir web --ignore-workspace build
+        env:
+          AUTH0_DOMAIN: example.auth0.com
+          AUTH0_CLIENT_ID: ci-placeholder-client-id
+          AUTH0_CLIENT_SECRET: ci-placeholder-client-secret
+          AUTH0_SECRET: "0000000000000000000000000000000000000000000000000000000000000000"
+          AUTH0_AUDIENCE: https://revenue-intelligence-api
+          APP_BASE_URL: http://localhost:3001
+          RIOS_API_BASE_URL: http://localhost:3000
