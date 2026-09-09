@@ -100,6 +100,23 @@ tbody tr:hover { background: #f0eee6; }
 .empty { color: var(--muted); text-align: center; }
 .backLink { display: inline-block; margin-bottom: 1.25rem; color: var(--green); font-size: .78rem; font-weight: 700; }
 .error { color: var(--danger); }
+.assistantConsole { border-top: 1px solid var(--line-strong); }
+.assistantPrompt { padding: 1.5rem; border: 1px solid var(--line); border-top: 0; background: var(--surface); }
+.assistantPrompt > label { display: block; margin-bottom: .65rem; color: var(--muted); font-size: .68rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
+.assistantPrompt > div { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; border: 1px solid var(--line-strong); background: white; }
+.assistantPrompt span { padding-left: .85rem; color: var(--green); font: 400 1.35rem var(--serif); }
+.assistantPrompt input { min-width: 0; padding: .85rem; border: 0; outline: 0; background: transparent; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
+.assistantPrompt button { align-self: stretch; padding: 0 1.25rem; border: 0; border-left: 1px solid var(--line-strong); background: var(--green); color: white; cursor: pointer; font-size: .7rem; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; }
+.assistantPrompt button:disabled { cursor: wait; opacity: .65; }
+.assistantBoundary { margin: 0; padding: .8rem 1.5rem; border-inline: 1px solid var(--line); border-bottom: 1px solid var(--line); color: var(--muted); font-size: .75rem; }
+.assistantHistory { display: grid; gap: 1rem; margin-top: 1.5rem; }
+.assistantResult { padding: 1.25rem; border: 1px solid var(--line); background: var(--surface); }
+.assistantResult > header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding-bottom: .75rem; border-bottom: 1px solid var(--line); }
+.assistantResult > header code, .assistantResult li code { color: var(--green); }
+.assistantResult h2 { margin: 1.25rem 0; font: 400 1.5rem var(--serif); }
+.assistantResult ul { display: grid; gap: .55rem; margin: 0; padding-left: 1.25rem; }
+.assistantResult .record, .assistantResult .tableWrap { margin-bottom: 0; }
+.assistantMessage { margin: 0; color: var(--muted); line-height: 1.6; }
 
 @media (max-width: 900px) {
   .landingHero { grid-template-columns: 1fr; }
@@ -121,6 +138,8 @@ tbody tr:hover { background: #f0eee6; }
   .landingNav { min-height: 70px; }
   .heroCopy h1 { font-size: clamp(3rem, 17vw, 5rem); }
   .lookup { align-items: stretch; flex-direction: column; }
+  .assistantPrompt > div { grid-template-columns: auto minmax(0, 1fr); }
+  .assistantPrompt button { grid-column: 1 / -1; min-height: 42px; border-top: 1px solid var(--line-strong); border-left: 0; }
   .record dl { grid-template-columns: 1fr; }
   .record dt { padding-bottom: 0; border-bottom: 0; }
   .record dd { padding-top: .3rem; }

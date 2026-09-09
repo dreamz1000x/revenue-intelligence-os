@@ -8,14 +8,14 @@ export default async function Home() {
     <main className="landing">
       <nav className="landingNav" aria-label="Primary navigation">
         <span className="wordmark">RIOS</span>
-        {session ? <Link href="/dashboard">Open workspace ↗</Link> : <a href="/auth/login">Secure sign in ↗</a>}
+        {!session && <a href="/auth/login">Secure sign in ↗</a>}
       </nav>
       <section className="landingHero">
         <div className="heroCopy">
           <p className="eyebrow">Revenue Intelligence OS · 01</p>
           <h1>Financial operations with evidence.</h1>
           <p>Inspect contracts, trace payments and refunds, resolve reconciliation findings, and review the audit trail through one disciplined operational interface.</p>
-          <div>{session ? <Link className="primaryLink" href="/dashboard">Open dashboard</Link> : <a className="primaryLink" href="/auth/login">Sign in with Auth0</a>}</div>
+          {session && <div><Link className="primaryLink" href="/dashboard">Open dashboard</Link></div>}
         </div>
         <aside className="heroAside" aria-label="Operating principle">
           <span className="heroIndex">Control surface / RIOS</span>

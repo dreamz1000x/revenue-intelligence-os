@@ -11,6 +11,7 @@ const links: readonly (readonly [string, string])[] = [
   ["Refunds", "/refunds"],
   ["Reconciliation", "/reconciliation"],
   ["Operations", "/operations"],
+  ["Assistant", "/assistant"],
 ];
 
 export function ShellNavigation({ canAudit }: { canAudit: boolean }) {
