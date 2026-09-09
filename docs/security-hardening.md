@@ -70,9 +70,9 @@ provider provenance remain separate records with separate meanings.
 
 ## 6. CORS posture
 
-CORS is disabled. There is no wildcard origin and no frontend origin yet. An
-exact allowlist will be closed immediately before or with the real frontend
-boundary. CORS is not an authentication control.
+CORS is disabled and there is no wildcard origin. The deployed Next.js BFF calls
+the API server-side, so the browser does not require a cross-origin API
+allowlist. CORS is not an authentication control.
 
 ## 7. Accepted v1 risks and limitations
 
@@ -91,8 +91,8 @@ boundary. CORS is not an authentication control.
   redaction belong to O5.
 - TLS, HSTS, and other deployment-edge controls are not owned by Fastify O4 and
   belong to O7.
-- No browser cross-origin allowlist exists until a real frontend origin is
-  known.
+- No browser cross-origin allowlist exists because the deployed frontend uses a
+  server-side BFF boundary.
 
 These are limitations, not implemented mitigations.
 

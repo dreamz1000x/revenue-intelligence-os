@@ -54,8 +54,11 @@ small safe model and never log tokens or arbitrary backend responses.
 
 ## Deployment
 
-Create a Vercel project rooted at `web/` and select Next.js. Use the committed
-lockfile and standard `pnpm install` / `pnpm build` behavior. Configure all seven
-variables above for Production and Preview as appropriate, then add the final
-Vercel origin to the Auth0 callback, logout, web-origin, and login-URI allowlists.
-No Vercel deployment or Auth0 application has been created by repository work.
+The deployed Vercel project is rooted at `web/` and uses Next.js with the
+committed lockfile and standard `pnpm install` / `pnpm build` behavior. Its
+production origin is
+[revenue-intelligence-os-nine.vercel.app](https://revenue-intelligence-os-nine.vercel.app).
+The dedicated `RIOS Web`
+Auth0 Regular Web Application and production callback/logout/origin allowlists
+remain separate from the API application. Provider-held secrets are not stored
+in this repository.

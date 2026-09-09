@@ -1,9 +1,17 @@
 # Revenue Intelligence OS
 
-Revenue Intelligence OS is an evolving backend portfolio project for modelling
-financed customer contracts and recording payment and refund effects with
-explicit, auditable semantics. The current implementation is a TypeScript modular
-monolith backed by PostgreSQL; it is not presented as production-ready.
+Revenue Intelligence OS (RIOS) is a full-stack engineering portfolio project
+for financed-contract operations: deterministic schedules, payments, refunds,
+evidence reconciliation, analytics, and auditability. A TypeScript modular
+monolith backed by PostgreSQL remains the financial authority; a bounded
+Next.js dashboard exposes its operational workflows.
+
+- **Frontend:** https://revenue-intelligence-os-nine.vercel.app
+- **Backend:** https://api-production-6efe0.up.railway.app
+- **Source:** https://github.com/dreamz1000x/revenue-intelligence-os
+
+The deployment is a verified portfolio environment, not a claim of contractual
+production readiness, scale, availability, or customer usage.
 
 ## What it demonstrates
 
@@ -23,6 +31,13 @@ monolith backed by PostgreSQL; it is not presented as production-ready.
   idempotent operator-resolution history.
 - Versioned operational analytics with explicit period and knowledge-time
   semantics, plus a guarded reproducible demo dataset.
+- Auth0 authentication with viewer, operator, and admin API enforcement.
+- Append-only authenticated mutation auditing, structured logs, request IDs,
+  health/readiness, and bounded process metrics.
+- A deterministic operations Assistant backed only by explicit RIOS API
+  commands—no LLM, RAG, or agent framework.
+- Railway/Vercel deployment, committed migration runner, and a verified
+  provider-independent backup/restore drill.
 - Automated unit, integration, migration, and HTTP-flow tests.
 
 ## Current architecture
@@ -176,11 +191,15 @@ RBAC. See [frontend setup](docs/frontend.md) and
 Deployment topology:
 
 ```text
-Browser → Vercel Next.js → Auth0 access token → Railway Fastify API → PostgreSQL
+Browser → Vercel / Next.js BFF → Railway / Fastify API → PostgreSQL
+                         ↕
+                       Auth0
+Stripe Test Mode → signed webhook → Railway / Fastify API
 ```
 
-The repository implementation is complete, but public frontend deployment and
-real browser authentication remain a provider smoke gate.
+The public frontend and backend are deployed at the links above. Next.js uses
+Auth0 for the session and token acquisition, then calls Railway directly with
+the bearer token; browser code never receives that token.
 
 ## API
 
@@ -233,6 +252,9 @@ Docker-compatible runtime must be available.
 
 ## Documentation
 
+- [Architecture](docs/architecture.md)
+- [Technical portfolio case study](docs/case-study.md)
+- [Final verification checklist](docs/final-verification.md)
 - [Deterministic public demo and reviewer walkthrough](docs/demo.md)
 - [Local load and resilience evidence](docs/load-resilience.md)
 - [Deterministic operations assistant](docs/assistant.md)
@@ -251,20 +273,22 @@ Docker-compatible runtime must be available.
 
 ## Current limitations
 
-The Railway project `revenue-intelligence-os` and its `production` environment
-have been provisioned with the `api` service, private PostgreSQL service and
-volume, public API domain, and required runtime variables. The first production
-deployment and migrations have not run, deployment verification and a recovery
-drill have not been completed, and RIOS is not production-ready. The current
-backend does not implement chargebacks, real bank ingestion, a dashboard, an AI
-assistant, or a frontend. Stripe support is deliberately limited to
-signed Test Mode `payment_intent.succeeded` ingestion: it does not ingest Stripe
-Refund events, initiate provider refunds, create PaymentIntents, or call Stripe
-APIs. Recorded Payments and Refunds do not prove provider or bank settlement,
-revenue recognition, or automatic remediation. Reconciliation v1 performs exact,
-deterministic comparison only; it has no fuzzy matching or AI decision-making.
-Analytics v1 does not claim MRR, churn, LTV, recognized revenue, accounting cash
-balance, or production readiness.
+RIOS is a portfolio/demo workload, not proven production scale. Local R1
+measurements are not production capacity or an SLO. The zero-cost deployment has
+one API replica, no HA, Redis, queues, workers, or microservices. Railway-native
+PITR and volume backups require a paid plan and are unavailable under the €0
+rule; recovery evidence instead uses a provider-independent logical backup and
+separate-target restore. No frontend production SLO is claimed.
+
+RIOS has no local password/user table: Auth0 owns identity, while API policies
+own authorization. Stripe support is deliberately Test Mode and limited to
+signed `payment_intent.succeeded` ingestion; it does not ingest Stripe Refund
+events, initiate refunds, create PaymentIntents, or prove bank settlement.
+Reconciliation is exact and deterministic, with simulated bank evidence and no
+fuzzy/AI remediation. The fixed demo is reproducible but not representative of
+production volume. The Assistant is a deterministic command interface, not AI.
+Analytics does not claim MRR, churn, LTV, recognized revenue, accounting cash
+balance, or accounts receivable.
 
 Railway native IaC was evaluated during O7 but is intentionally deferred:
 `railway@3.11.0` cannot represent the required provider-side

@@ -133,6 +133,10 @@ and reasons.
    headline figures with the golden table above and inspect recent Run 1. This
    proves that the presentation reads backend-owned analytics rather than
    calculating financial truth in the browser.
+10. **Assistant — `/assistant`.** Run `/customer 1`, `/contract 1`,
+    `/payment 1`, `/revenue`, and `/status`; an admin may also run
+    `/audit`. This proves that a fixed grammar maps to the same authoritative
+    APIs without an LLM, arbitrary route, or browser-owned financial calculation.
 
 ## Evidence boundaries
 

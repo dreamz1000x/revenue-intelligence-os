@@ -6,9 +6,9 @@ O6 establishes basic runtime operability primitives for RIOS: liveness,
 PostgreSQL readiness, and bounded process-local HTTP metrics. O5 owns structured
 logging and request correlation. O7 defines the production deployment,
 migration, shutdown, backup, recovery, and operator contract in
-[Production deployment and recovery](deployment.md). The base Railway resources
-are provisioned, while the first deployment and recovery validation remain
-pending.
+[Production deployment and recovery](deployment.md). Railway resources,
+deployment, committed migrations, and the provider-independent recovery drill
+have been verified.
 Native IaC is intentionally deferred because `railway@3.11.0` cannot represent
 the required provider-side `preDeployTimeoutSeconds` setting; current provider
 configuration remains authoritative.
@@ -113,9 +113,9 @@ security headers apply and CORS remains absent.
 - There are no latency histograms, database-pool metrics, or business/financial
   metrics.
 - There is no external monitoring or alerting.
-- Railway deployment health/readiness settings are configured but remain
-  unverified until the first deployment. Backups and recovery have a documented
-  operator contract but are not yet validated against the real project.
+- Railway deployment health/readiness behavior has been verified. Native PITR
+  and volume backups are unavailable on the zero-cost plan; the documented
+  provider-independent logical backup was restored and validated separately.
 
 ## Verification
 

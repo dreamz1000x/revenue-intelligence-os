@@ -44,9 +44,10 @@ evidence, and idempotent operator actions.
 
 ## Outside the current boundary
 
-The backend does not yet implement Stripe Refund ingestion, automatic provider
-refunds, chargebacks, real bank ingestion, fuzzy or AI-assisted matching,
-automatic remediation, predictive or accounting analytics, dashboards,
-authentication or RBAC, an AI assistant, a frontend, or public deployment. A
-Payment or Refund is an accepted and durably recorded internal financial fact;
-neither proves provider or bank settlement or revenue recognition.
+RIOS does not implement Stripe Refund ingestion, automatic provider refunds,
+chargebacks, real bank ingestion, fuzzy or AI-assisted matching, automatic
+remediation, predictive or accounting analytics, or local password accounts.
+The deployed dashboard uses Auth0 and backend RBAC. Its Assistant is a
+deterministic API-command interface, not an AI assistant. A Payment or Refund is
+an accepted and durably recorded internal financial fact; neither proves
+provider or bank settlement or revenue recognition.

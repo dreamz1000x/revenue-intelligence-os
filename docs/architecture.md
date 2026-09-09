@@ -6,6 +6,17 @@ dashboard. It does not claim contractual production readiness.
 
 ## System shape
 
+```text
+Browser → Vercel / Next.js BFF → Railway / Fastify API → PostgreSQL
+                         ↕
+                       Auth0
+Stripe Test Mode → signed webhook → Railway / Fastify API
+```
+
+Auth0 is the identity provider, not an API request hop. Next.js uses it for the
+session and token acquisition, then calls Railway directly with the bearer
+token.
+
 Revenue Intelligence OS is a modular monolith running as one Node.js process
 against one PostgreSQL database. The process creates one PostgreSQL connection
 pool and shares it through the persistence adapters.
@@ -102,6 +113,15 @@ persists append-only AuditEvents. It is separate from the financial ledger,
 Stripe provenance, logs, and tracing. O3 does not claim atomic business-and-audit
 persistence; audit failure is propagated and idempotent retry closes the small
 post-commit crash window.
+
+### Deterministic operations Assistant
+
+The authenticated Next.js product contains a fixed command surface for
+`/revenue`, entity inspection, bounded service status, and admin audit reads.
+A closed parser maps commands to explicit existing API paths through server-side
+calls. It owns no token, persistence, financial calculation, natural-language
+inference, LLM, RAG, or arbitrary execution capability. Backend RBAC remains
+authoritative.
 
 ## Request and event flows
 
@@ -268,7 +288,8 @@ The project does not use `drizzle-kit push`.
 
 The current architecture does not implement Stripe Refund ingestion, automatic
 provider refunds, chargebacks, real bank ingestion, fuzzy matching, AI
-remediation, predictive analytics, accounting analytics, an AI assistant,
-Redis, queues, workers, microservices, or realtime transport. The frontend does
+remediation, predictive analytics, accounting analytics, or a generative AI assistant.
+The deterministic command Assistant is implemented without AI. RIOS has no
+Redis, queues, workers, microservices, HA replicas, or realtime transport. The frontend does
 not add broad list/CRUD APIs or client-side financial rules. Stripe ingestion does not create
 PaymentIntents or prove provider or bank settlement.
