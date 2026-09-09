@@ -234,6 +234,7 @@ Docker-compatible runtime must be available.
 ## Documentation
 
 - [Deterministic public demo and reviewer walkthrough](docs/demo.md)
+- [Local load and resilience evidence](docs/load-resilience.md)
 - [Problem definition and implemented boundary](docs/problem.md)
 - [Financial invariants](docs/financial-invariants.md)
 - [Ledger semantics](docs/ledger-semantics.md)
